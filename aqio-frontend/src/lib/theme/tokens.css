@@ -1,0 +1,172 @@
+/* AQIO Design System - Norwegian Aquaculture Theme */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+
+/* Auto theme detection */
+@media (prefers-color-scheme: light) {
+  .aqio-theme-auto {
+    --theme-variant: light;
+  }
+}
+
+@media (prefers-color-scheme: dark) {
+  .aqio-theme-auto {
+    --theme-variant: dark;
+  }
+}
+
+.aqio-theme-light {
+  --theme-variant: light;
+}
+
+.aqio-theme-dark {
+  --theme-variant: dark;
+}
+
+:root, .aqio-theme-light, .aqio-theme-auto {
+  /* AQIO Brand Colors - Norwegian Aquaculture Theme */
+  --aqio-blue-primary: #1B4D8C;      /* Deep ocean blue */
+  --aqio-blue-secondary: #4A90E2;     /* Fjord blue */
+  --aqio-blue-light: #E3F2FD;        /* Ice blue */
+  --aqio-green-primary: #2D5A3D;     /* Forest green */
+  --aqio-green-secondary: #52C41A;    /* Fresh water green */
+  --aqio-green-light: #F6FFED;       /* Mint fresh */
+  --aqio-orange-primary: #FF6B35;    /* Salmon orange */
+  --aqio-orange-secondary: #FFA366;   /* Light salmon */
+  --aqio-orange-light: #FFF7ED;      /* Cream */
+  
+  /* Semantic Light Theme Colors */
+  --aqio-background: #FFFFFF;         /* Pure white */
+  --aqio-surface: #F8FAFC;           /* Clean water */
+  --aqio-surface-hover: #F1F5F9;     /* Ripple effect */
+  --aqio-surface-active: #E2E8F0;    /* Pressed water */
+  --aqio-border: #E2E8F0;            /* Gentle waves */
+  --aqio-border-hover: #CBD5E1;      /* Active waves */
+  --aqio-text: #1E293B;              /* Deep sea */
+  --aqio-text-secondary: #64748B;    /* Misty fjord */
+  --aqio-text-disabled: #94A3B8;     /* Fog */
+  --aqio-text-on-primary: #FFFFFF;   /* White on blue */
+  
+  /* Status Colors */
+  --aqio-success: var(--aqio-green-secondary);
+  --aqio-success-light: var(--aqio-green-light);
+  --aqio-warning: #F59E0B;           /* Amber warning */
+  --aqio-warning-light: #FEF3C7;     /* Light amber */
+  --aqio-error: #EF4444;             /* Alert red */
+  --aqio-error-light: #FEE2E2;       /* Light red */
+  --aqio-info: var(--aqio-blue-secondary);
+  --aqio-info-light: var(--aqio-blue-light);
+  
+  /* Focus and Interactive States */
+  --aqio-focus-ring: var(--aqio-blue-primary);
+  --aqio-shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+  --aqio-shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+  --aqio-shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+}
+
+.aqio-theme-dark {
+  /* AQIO Dark Theme - Deep Ocean Theme */
+  --aqio-blue-primary: #60A5FA;      /* Lighter ocean blue */
+  --aqio-blue-secondary: #93C5FD;    /* Light fjord blue */
+  --aqio-blue-light: #1E3A8A;       /* Deep blue background */
+  --aqio-green-primary: #4ADE80;     /* Bright forest green */
+  --aqio-green-secondary: #86EFAC;   /* Light water green */
+  --aqio-green-light: #064E3B;       /* Dark green background */
+  --aqio-orange-primary: #FB923C;    /* Bright salmon */
+  --aqio-orange-secondary: #FDBA74;  /* Light salmon */
+  --aqio-orange-light: #9A3412;      /* Dark orange background */
+  
+  /* Semantic Dark Theme Colors */
+  --aqio-background: #0F172A;         /* Deep ocean */
+  --aqio-surface: #1E293B;           /* Ocean floor */
+  --aqio-surface-hover: #334155;     /* Lighter ocean floor */
+  --aqio-surface-active: #475569;    /* Active ocean floor */
+  --aqio-border: #334155;            /* Ocean currents */
+  --aqio-border-hover: #475569;      /* Active currents */
+  --aqio-text: #F1F5F9;              /* Foam white */
+  --aqio-text-secondary: #CBD5E1;    /* Light mist */
+  --aqio-text-disabled: #64748B;     /* Deep mist */
+  --aqio-text-on-primary: #0F172A;   /* Dark on light */
+  
+  /* Status Colors - Dark Theme */
+  --aqio-success: var(--aqio-green-primary);
+  --aqio-success-light: var(--aqio-green-light);
+  --aqio-warning: #FBBF24;           /* Bright amber */
+  --aqio-warning-light: #92400E;     /* Dark amber */
+  --aqio-error: #F87171;             /* Bright red */
+  --aqio-error-light: #991B1B;       /* Dark red */
+  --aqio-info: var(--aqio-blue-primary);
+  --aqio-info-light: var(--aqio-blue-light);
+  
+  /* Focus and Interactive States - Dark */
+  --aqio-focus-ring: var(--aqio-blue-primary);
+  --aqio-shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.3);
+  --aqio-shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.4), 0 2px 4px -2px rgb(0 0 0 / 0.4);
+  --aqio-shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.5), 0 4px 6px -4px rgb(0 0 0 / 0.5);
+}
+
+/* Typography Scale */
+:root {
+  --aqio-font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
+  --aqio-font-mono: 'SF Mono', 'Monaco', 'Inconsolata', 'Roboto Mono', monospace;
+  
+  /* Font Sizes */
+  --aqio-text-xs: 0.75rem;    /* 12px */
+  --aqio-text-sm: 0.875rem;   /* 14px */
+  --aqio-text-base: 1rem;     /* 16px */
+  --aqio-text-lg: 1.125rem;   /* 18px */
+  --aqio-text-xl: 1.25rem;    /* 20px */
+  --aqio-text-2xl: 1.5rem;    /* 24px */
+  --aqio-text-3xl: 1.875rem;  /* 30px */
+  --aqio-text-4xl: 2.25rem;   /* 36px */
+  
+  /* Font Weights */
+  --aqio-font-light: 300;
+  --aqio-font-normal: 400;
+  --aqio-font-medium: 500;
+  --aqio-font-semibold: 600;
+  --aqio-font-bold: 700;
+  
+  /* Line Heights */
+  --aqio-leading-tight: 1.25;
+  --aqio-leading-normal: 1.5;
+  --aqio-leading-relaxed: 1.625;
+  
+  /* Spacing Scale */
+  --aqio-space-1: 0.25rem;    /* 4px */
+  --aqio-space-2: 0.5rem;     /* 8px */
+  --aqio-space-3: 0.75rem;    /* 12px */
+  --aqio-space-4: 1rem;       /* 16px */
+  --aqio-space-5: 1.25rem;    /* 20px */
+  --aqio-space-6: 1.5rem;     /* 24px */
+  --aqio-space-8: 2rem;       /* 32px */
+  --aqio-space-10: 2.5rem;    /* 40px */
+  --aqio-space-12: 3rem;      /* 48px */
+  --aqio-space-16: 4rem;      /* 64px */
+  
+  /* Border Radius */
+  --aqio-radius-sm: 0.125rem;  /* 2px */
+  --aqio-radius-md: 0.375rem;  /* 6px */
+  --aqio-radius-lg: 0.5rem;    /* 8px */
+  --aqio-radius-xl: 0.75rem;   /* 12px */
+  --aqio-radius-full: 9999px;
+  
+  /* Transitions */
+  --aqio-transition-fast: 150ms ease-in-out;
+  --aqio-transition-normal: 250ms ease-in-out;
+  --aqio-transition-slow: 350ms ease-in-out;
+}
+
+/* Global Base Styles */
+.aqio-theme-light,
+.aqio-theme-dark, 
+.aqio-theme-auto {
+  font-family: var(--aqio-font-family);
+  color: var(--aqio-text);
+  background-color: var(--aqio-background);
+}
+
+/* Focus Ring Utility */
+.aqio-focus-ring:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px var(--aqio-focus-ring);
+}

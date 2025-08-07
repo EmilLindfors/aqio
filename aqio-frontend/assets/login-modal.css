@@ -1,0 +1,155 @@
+/* AQIO Login Modal Styles */
+
+.aqio-modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 1rem;
+}
+
+.aqio-modal-content {
+  background-color: var(--aqio-surface, white);
+  border-radius: var(--aqio-radius-lg, 0.5rem);
+  padding: 1.5rem;
+  width: 100%;
+  max-width: 28rem;
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+  border: 1px solid var(--aqio-border, #e5e7eb);
+}
+
+.aqio-modal-header {
+  margin-bottom: 1.5rem;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid var(--aqio-border, #e5e7eb);
+}
+
+.aqio-modal-spacer {
+  flex: 1;
+}
+
+.aqio-modal-close {
+  background: none;
+  border: none;
+  font-size: 1.5rem;
+  color: var(--aqio-text-secondary, #6b7280);
+  cursor: pointer;
+  padding: 0.25rem;
+  border-radius: var(--aqio-radius-md, 0.375rem);
+  transition: color 150ms ease-in-out, background-color 150ms ease-in-out;
+}
+
+.aqio-modal-close:hover {
+  color: var(--aqio-text-primary, #111827);
+  background-color: var(--aqio-gray-100, #f3f4f6);
+}
+
+.aqio-modal-form {
+  width: 100%;
+}
+
+.aqio-form-label {
+  display: block;
+  font-size: var(--aqio-text-sm, 0.875rem);
+  font-weight: var(--aqio-font-medium, 500);
+  color: var(--aqio-text-primary, #111827);
+  margin-bottom: 0.5rem;
+}
+
+.aqio-form-select {
+  width: 100%;
+  padding: 0.75rem 1rem;
+  border: 2px solid var(--aqio-border, #e5e7eb);
+  border-radius: var(--aqio-radius-md, 0.375rem);
+  font-size: var(--aqio-text-base, 1rem);
+  background-color: var(--aqio-surface, white);
+  color: var(--aqio-text-primary, #111827);
+  transition: border-color 150ms ease-in-out, box-shadow 150ms ease-in-out;
+}
+
+.aqio-form-select:focus {
+  outline: none;
+  border-color: var(--aqio-blue-primary, #1B4D8C);
+  box-shadow: 0 0 0 3px rgba(27, 77, 140, 0.1);
+}
+
+.aqio-error-message {
+  background-color: var(--aqio-error-light, #fef2f2);
+  border: 1px solid var(--aqio-error, #dc2626);
+  border-radius: var(--aqio-radius-md, 0.375rem);
+  padding: 1rem;
+}
+
+.aqio-error-icon {
+  flex-shrink: 0;
+  font-size: 1.25rem;
+}
+
+.aqio-info-message {
+  background-color: var(--aqio-blue-50, #eff6ff);
+  border: 1px solid var(--aqio-blue-200, #bfdbfe);
+  border-radius: var(--aqio-radius-md, 0.375rem);
+  padding: 1rem;
+}
+
+.aqio-info-icon {
+  flex-shrink: 0;
+  font-size: 1.25rem;
+  color: var(--aqio-blue-primary, #1B4D8C);
+}
+
+/* Responsive adjustments */
+@media (max-width: 640px) {
+  .aqio-modal-content {
+    margin: 1rem;
+    padding: 1.25rem;
+  }
+}
+
+/* Animation */
+@keyframes aqio-modal-fade-in {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.aqio-modal-content {
+  animation: aqio-modal-fade-in 150ms ease-out;
+}
+
+/* High contrast support */
+@media (prefers-contrast: high) {
+  .aqio-modal-content {
+    border: 2px solid var(--aqio-text-primary, #111827);
+  }
+  
+  .aqio-form-select {
+    border-width: 2px;
+  }
+}
+
+/* Reduced motion support */
+@media (prefers-reduced-motion: reduce) {
+  .aqio-modal-content {
+    animation: none;
+  }
+  
+  .aqio-modal-close {
+    transition: none;
+  }
+  
+  .aqio-form-select {
+    transition: none;
+  }
+}

@@ -1,0 +1,274 @@
+/* AQIO Typography Components */
+
+/* Base Typography Styles */
+.aqio-text {
+  font-family: var(--aqio-font-family, Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif);
+  line-height: var(--aqio-leading-normal, 1.5);
+  color: var(--aqio-text-color, #1f2937);
+  margin: 0;
+}
+
+/* Text Sizes */
+.aqio-text[data-size="x-small"] {
+  font-size: var(--aqio-text-xs, 0.75rem);    /* 12px */
+  line-height: var(--aqio-leading-tight, 1.25);
+}
+
+.aqio-text[data-size="small"] {
+  font-size: var(--aqio-text-sm, 0.875rem);   /* 14px */
+  line-height: var(--aqio-leading-tight, 1.25);
+}
+
+.aqio-text[data-size="medium"] {
+  font-size: var(--aqio-text-base, 1rem);     /* 16px */
+  line-height: var(--aqio-leading-normal, 1.5);
+}
+
+.aqio-text[data-size="large"] {
+  font-size: var(--aqio-text-lg, 1.125rem);   /* 18px */
+  line-height: var(--aqio-leading-relaxed, 1.625);
+}
+
+.aqio-text[data-size="x-large"] {
+  font-size: var(--aqio-text-xl, 1.25rem);    /* 20px */
+  line-height: var(--aqio-leading-relaxed, 1.625);
+}
+
+.aqio-text[data-size="xx-large"] {
+  font-size: var(--aqio-text-2xl, 1.5rem);    /* 24px */
+  line-height: var(--aqio-leading-loose, 2);
+}
+
+/* Text Weights */
+.aqio-text[data-weight="light"] {
+  font-weight: var(--aqio-font-light, 300);
+}
+
+.aqio-text[data-weight="normal"] {
+  font-weight: var(--aqio-font-normal, 400);
+}
+
+.aqio-text[data-weight="medium"] {
+  font-weight: var(--aqio-font-medium, 500);
+}
+
+.aqio-text[data-weight="semi-bold"] {
+  font-weight: var(--aqio-font-semibold, 600);
+}
+
+.aqio-text[data-weight="bold"] {
+  font-weight: var(--aqio-font-bold, 700);
+}
+
+/* Text Colors */
+.aqio-text[data-color="primary"] {
+  color: var(--aqio-text-primary, #1f2937);
+}
+
+.aqio-text[data-color="secondary"] {
+  color: var(--aqio-text-secondary, #6b7280);
+}
+
+.aqio-text[data-color="disabled"] {
+  color: var(--aqio-text-disabled, #9ca3af);
+}
+
+.aqio-text[data-color="success"] {
+  color: var(--aqio-text-success, #059669);
+}
+
+.aqio-text[data-color="warning"] {
+  color: var(--aqio-text-warning, #d97706);
+}
+
+.aqio-text[data-color="error"] {
+  color: var(--aqio-text-error, #dc2626);
+}
+
+.aqio-text[data-color="info"] {
+  color: var(--aqio-text-info, #2563eb);
+}
+
+.aqio-text[data-color="white"] {
+  color: white;
+}
+
+/* Text Alignment */
+.aqio-text[data-align="left"] {
+  text-align: left;
+}
+
+.aqio-text[data-align="center"] {
+  text-align: center;
+}
+
+.aqio-text[data-align="right"] {
+  text-align: right;
+}
+
+.aqio-text[data-align="justify"] {
+  text-align: justify;
+}
+
+/* Headings */
+.aqio-heading {
+  font-family: var(--aqio-font-family, Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif);
+  font-weight: var(--aqio-font-bold, 700);
+  line-height: var(--aqio-leading-tight, 1.25);
+  color: var(--aqio-text-color, #1f2937);
+  margin: 0;
+  margin-bottom: var(--aqio-space-2, 0.5rem);
+}
+
+.aqio-heading[data-level="h1"] {
+  font-size: var(--aqio-text-3xl, 1.875rem);  /* 30px */
+  line-height: var(--aqio-leading-tight, 1.25);
+}
+
+.aqio-heading[data-level="h2"] {
+  font-size: var(--aqio-text-2xl, 1.5rem);    /* 24px */
+  line-height: var(--aqio-leading-tight, 1.25);
+}
+
+.aqio-heading[data-level="h3"] {
+  font-size: var(--aqio-text-xl, 1.25rem);    /* 20px */
+  line-height: var(--aqio-leading-snug, 1.375);
+}
+
+.aqio-heading[data-level="h4"] {
+  font-size: var(--aqio-text-lg, 1.125rem);   /* 18px */
+  line-height: var(--aqio-leading-snug, 1.375);
+}
+
+.aqio-heading[data-level="h5"] {
+  font-size: var(--aqio-text-base, 1rem);     /* 16px */
+  line-height: var(--aqio-leading-normal, 1.5);
+}
+
+.aqio-heading[data-level="h6"] {
+  font-size: var(--aqio-text-sm, 0.875rem);   /* 14px */
+  line-height: var(--aqio-leading-normal, 1.5);
+}
+
+/* Heading Colors (inherits from text colors) */
+.aqio-heading[data-color="primary"] {
+  color: var(--aqio-text-primary, #1f2937);
+}
+
+.aqio-heading[data-color="secondary"] {
+  color: var(--aqio-text-secondary, #6b7280);
+}
+
+.aqio-heading[data-color="white"] {
+  color: white;
+}
+
+/* Paragraph Styles */
+.aqio-paragraph {
+  font-family: var(--aqio-font-family, Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif);
+  font-size: var(--aqio-text-base, 1rem);
+  line-height: var(--aqio-leading-relaxed, 1.625);
+  color: var(--aqio-text-color, #1f2937);
+  margin: 0;
+  margin-bottom: var(--aqio-space-4, 1rem);
+}
+
+.aqio-paragraph[data-size="small"] {
+  font-size: var(--aqio-text-sm, 0.875rem);
+  line-height: var(--aqio-leading-normal, 1.5);
+}
+
+.aqio-paragraph[data-size="large"] {
+  font-size: var(--aqio-text-lg, 1.125rem);
+  line-height: var(--aqio-leading-relaxed, 1.625);
+}
+
+/* Paragraph Colors */
+.aqio-paragraph[data-color="primary"] {
+  color: var(--aqio-text-primary, #1f2937);
+}
+
+.aqio-paragraph[data-color="secondary"] {
+  color: var(--aqio-text-secondary, #6b7280);
+}
+
+.aqio-paragraph[data-color="white"] {
+  color: white;
+}
+
+/* Special Typography Utilities */
+.aqio-text[data-truncate="true"] {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.aqio-text[data-uppercase="true"] {
+  text-transform: uppercase;
+}
+
+.aqio-text[data-lowercase="true"] {
+  text-transform: lowercase;
+}
+
+.aqio-text[data-capitalize="true"] {
+  text-transform: capitalize;
+}
+
+/* Remove bottom margin when specified */
+.aqio-heading[data-margin-bottom="none"],
+.aqio-paragraph[data-margin-bottom="none"] {
+  margin-bottom: 0;
+}
+
+/* Custom margin bottom sizes */
+.aqio-heading[data-margin-bottom="small"],
+.aqio-paragraph[data-margin-bottom="small"] {
+  margin-bottom: var(--aqio-space-2, 0.5rem);
+}
+
+.aqio-heading[data-margin-bottom="large"],
+.aqio-paragraph[data-margin-bottom="large"] {
+  margin-bottom: var(--aqio-space-6, 1.5rem);
+}
+
+/* Link Styles */
+.aqio-link {
+  color: var(--aqio-blue-primary, #2563eb);
+  text-decoration: underline;
+  transition: color 0.2s ease;
+}
+
+.aqio-link:hover {
+  color: var(--aqio-blue-secondary, #1d4ed8);
+}
+
+.aqio-link:focus {
+  outline: 2px solid var(--aqio-blue-primary, #2563eb);
+  outline-offset: 2px;
+}
+
+/* Code and Monospace Text */
+.aqio-code {
+  font-family: ui-monospace, SFMono-Regular, "SF Mono", Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+  font-size: 0.875rem;
+  background-color: var(--aqio-gray-100, #f3f4f6);
+  padding: 0.125rem 0.25rem;
+  border-radius: 0.25rem;
+  color: var(--aqio-text-primary, #1f2937);
+}
+
+/* Responsive Typography */
+@media (max-width: 768px) {
+  .aqio-heading[data-level="h1"] {
+    font-size: var(--aqio-text-2xl, 1.5rem);
+  }
+  
+  .aqio-heading[data-level="h2"] {
+    font-size: var(--aqio-text-xl, 1.25rem);
+  }
+  
+  .aqio-heading[data-level="h3"] {
+    font-size: var(--aqio-text-lg, 1.125rem);
+  }
+}
