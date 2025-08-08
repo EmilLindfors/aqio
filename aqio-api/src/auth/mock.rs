@@ -49,31 +49,36 @@ pub async fn mock_auth_middleware(
 }
 
 fn create_mock_claims(user_id: &str) -> Claims {
-    let (sub, email, name) = match user_id {
+    let (sub, email, name, roles) = match user_id {
         "dev-user" => (
             "550e8400-e29b-41d4-a716-446655440001",
             "dev@aquanorway.no",
             "Development User",
+            vec!["participant".to_string()],
         ),
         "admin-user" => (
             "550e8400-e29b-41d4-a716-446655440010", 
             "admin@aqio.no",
             "Admin User",
+            vec!["admin".to_string(), "organizer".to_string()],
         ),
         "john-doe" => (
             "550e8400-e29b-41d4-a716-446655440011",
             "john.doe@salmonfarm.no", 
             "John Doe",
+            vec!["organizer".to_string()],
         ),
         "jane-smith" => (
             "550e8400-e29b-41d4-a716-446655440012",
             "jane.smith@troutco.no",
             "Jane Smith", 
+            vec!["participant".to_string()],
         ),
         _ => (
             "550e8400-e29b-41d4-a716-446655440099",
             "unknown@example.no",
             "Unknown User",
+            vec!["participant".to_string()],
         ),
     };
 
@@ -81,6 +86,7 @@ fn create_mock_claims(user_id: &str) -> Claims {
         sub: sub.to_string(),
         email: email.to_string(),
         name: name.to_string(),
+        roles: Some(roles),
         exp: (chrono::Utc::now().timestamp() + 3600) as usize, // 1 hour from now
         iat: chrono::Utc::now().timestamp() as usize,
     }

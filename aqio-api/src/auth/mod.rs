@@ -16,6 +16,16 @@ pub struct Claims {
     pub name: String,
     pub exp: usize,
     pub iat: usize,
+    pub roles: Option<Vec<String>>,
+}
+
+impl Claims {
+    pub fn is_admin(&self) -> bool {
+        self.roles
+            .as_ref()
+            .map(|roles| roles.contains(&"admin".to_string()))
+            .unwrap_or(false)
+    }
 }
 
 #[derive(Clone)]

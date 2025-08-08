@@ -1,16 +1,18 @@
 [package]
 name = "aqio-frontend"
-version = "0.1.0"
-authors = ["Emil Lindfors <emil@aquacloud.ai>"]
-edition = "2021"
+version.workspace = true
+authors.workspace = true
+edition.workspace = true
+license.workspace = true
+description.workspace = true
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
 dioxus = { version = "0.7.0-alpha.3", features = ["router"] }
-reqwest = { version = "0.11", features = ["json"] }
-serde = { version = "1.0", features = ["derive"] }
-serde_json = "1.0"
+reqwest.workspace = true
+serde.workspace = true
+serde_json.workspace = true
 chrono = { version = "0.4", features = ["serde", "wasm-bindgen"] }
 uuid = { version = "1.0", features = ["serde", "v4", "js"] }
 wasm-bindgen = "0.2"
@@ -19,10 +21,11 @@ web-sys = "0.3"
 gloo-storage = "0.3"
 gloo-timers = { version = "0.3", features = ["futures"] }
 js-sys = "0.3"
-aqio-core = { path = "../aqio-core" }
+aqio-core.workspace = true
 # dioxus-primitives = { path = "components/primitives" }
-log = "0.4"
+log.workspace = true
 console_error_panic_hook = "0.1"
+async-trait.workspace = true
 
 [features]
 default = ["web"]

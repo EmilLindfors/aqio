@@ -1,16 +1,26 @@
 mod auth;
-mod handlers;
+mod domain;
+mod infrastructure;
 
-use aqio_database::Database;
-use auth::{KeycloakConfig, auth_middleware};
-use auth::mock::{MockAuthConfig, mock_auth_middleware, mock_login, mock_logout};
+#[cfg(test)]
+mod testing;
+
+use aqio_database::{
+    Database,
+    infrastructure::persistence::sqlite::{
+        SqliteEventCategoryRepository, SqliteEventRepository, SqliteInvitationRepository,
+        SqliteUserRepository,
+    },
+};
+use auth::KeycloakConfig;
+use auth::mock::{MockAuthConfig, mock_login, mock_logout};
 use axum::{
-    Router, middleware,
+    Router,
     routing::{get, post},
 };
+use infrastructure::web::{AppState, add_auth_middleware, create_routes};
 use std::env;
-use tower::ServiceBuilder;
-use tower_http::cors::CorsLayer;
+use std::sync::Arc;
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
@@ -21,31 +31,35 @@ async fn main() -> anyhow::Result<()> {
 
     let db = Database::new(&database_url).await?;
 
-    let app = if use_mock_auth {
+    // Create repository implementations
+    let event_repository = Arc::new(SqliteEventRepository::new(db.pool().clone()));
+    let user_repository = Arc::new(SqliteUserRepository::new(db.pool().clone()));
+    let event_category_repository = Arc::new(SqliteEventCategoryRepository::new(db.pool().clone()));
+    let invitation_repository = Arc::new(SqliteInvitationRepository::new(db.pool().clone()));
+
+    // Create concrete application state with dependency injection
+    let app_state = AppState::new(
+        event_repository,
+        user_repository,
+        event_category_repository,
+        invitation_repository,
+    );
+
+    // Create base routes (expecting AppState)
+    let mut app = create_routes();
+
+    // Add authentication middleware and auth routes
+    if use_mock_auth {
         println!("🔓 Using mock authentication for development");
         let mock_config = MockAuthConfig::new(true);
 
-        // Mock auth routes
+        // Add mock auth routes
         let auth_routes = Router::new()
             .route("/auth/login", get(mock_login))
             .route("/auth/logout", post(mock_logout));
 
-        // Protected routes with mock auth
-        let protected_routes = Router::new()
-            .route("/events", post(handlers::create_event))
-            .layer(middleware::from_fn_with_state(
-                mock_config.clone(),
-                mock_auth_middleware,
-            ));
-
-        Router::new()
-            .route("/health", get(handlers::health))
-            .route("/events", get(handlers::list_events))
-            .route("/events/{id}", get(handlers::get_event))
-            .merge(auth_routes)
-            .merge(protected_routes)
-            .layer(ServiceBuilder::new().layer(CorsLayer::permissive()))
-            .with_state(db)
+        app = app.merge(auth_routes);
+        app = add_auth_middleware(app, true, None, Some(mock_config));
     } else {
         println!("🔒 Using Keycloak authentication");
         let keycloak_realm_url = env::var("KEYCLOAK_REALM_URL")
@@ -54,25 +68,11 @@ async fn main() -> anyhow::Result<()> {
             env::var("KEYCLOAK_CLIENT_ID").unwrap_or_else(|_| "aqio-api".to_string());
         let keycloak_config = KeycloakConfig::new(keycloak_realm_url, keycloak_client_id);
 
-        let protected_routes = Router::new()
-            .route("/events", post(handlers::create_event))
-            .layer(middleware::from_fn_with_state(
-                keycloak_config.clone(),
-                auth_middleware,
-            ));
-
-        Router::new()
-            .route("/health", get(handlers::health))
-            .route("/events", get(handlers::list_events))
-            .route("/events/{id}", get(handlers::get_event))
-            .merge(protected_routes)
-            .layer(ServiceBuilder::new().layer(CorsLayer::permissive()))
-            .with_state(db)
+        app = add_auth_middleware(app, false, Some(keycloak_config), None);
     };
 
-    let listener = tokio::net::TcpListener::bind("127.0.0.1:3000").await?;
     println!("🚀 Server running on http://127.0.0.1:3000");
-    
+
     if use_mock_auth {
         println!("🔑 Mock auth endpoints:");
         println!("  GET  /auth/login?username=dev-user");
@@ -80,6 +80,10 @@ async fn main() -> anyhow::Result<()> {
         println!("📝 Available mock users: dev-user, admin-user, john-doe, jane-smith");
     }
 
-    axum::serve(listener, app).await?;
+    // Add the state to the router before serving
+    let app_with_state = app.with_state(app_state);
+
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:3000").await?;
+    axum::serve(listener, app_with_state).await?;
     Ok(())
 }
