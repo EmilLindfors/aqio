@@ -51,6 +51,9 @@ logs/
 test_*.sql
 *_test_data.csv
 
+# CSV data files (keep local, don't commit)
+*.csv
+
 # Build artifacts
 **/dist/
 **/build/
