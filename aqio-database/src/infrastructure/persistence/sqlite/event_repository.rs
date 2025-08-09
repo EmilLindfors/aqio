@@ -1,10 +1,10 @@
 use crate::domain::errors::InfrastructureError;
+use crate::infrastructure::persistence::sqlite::types::{SafeRowGet, RowConversionError};
 use aqio_core::{Event, EventFilter, PaginationParams, PaginatedResult, LocationType, EventStatus, DomainResult, EventRepository};
 use async_trait::async_trait;
 use sqlx::{Pool, Sqlite, Row};
 use tracing::{instrument, debug};
 use uuid::Uuid;
-use chrono::{DateTime, Utc};
 
 #[derive(Clone)]
 pub struct SqliteEventRepository {
@@ -16,41 +16,41 @@ impl SqliteEventRepository {
         Self { pool }
     }
 
-    // Helper method to convert database row to Event
-    fn row_to_event(row: &sqlx::sqlite::SqliteRow) -> Event {
-        Event {
-            id: Uuid::parse_str(&row.try_get::<String, _>("id").unwrap_or_default()).unwrap_or_default(),
-            title: row.try_get("title").unwrap_or_default(),
-            description: row.try_get("description").unwrap_or_default(),
-            category_id: row.try_get("category_id").unwrap_or_default(),
-            start_date: DateTime::from_naive_utc_and_offset(row.try_get("start_date").unwrap_or_else(|_| chrono::DateTime::from_timestamp(0, 0).unwrap().naive_utc()), Utc),
-            end_date: DateTime::from_naive_utc_and_offset(row.try_get("end_date").unwrap_or_else(|_| chrono::DateTime::from_timestamp(0, 0).unwrap().naive_utc()), Utc),
-            timezone: row.try_get("timezone").unwrap_or_default(),
-            location_type: Self::string_to_location_type(&row.try_get::<String, _>("location_type").unwrap_or_default()),
-            location_name: row.try_get("location_name").ok(),
-            address: row.try_get("address").ok(),
-            virtual_link: row.try_get("virtual_link").ok(),
-            virtual_access_code: row.try_get("virtual_access_code").ok(),
-            organizer_id: Uuid::parse_str(&row.try_get::<String, _>("organizer_id").unwrap_or_default()).unwrap_or_default(),
-            co_organizers: serde_json::from_str(&row.try_get::<String, _>("co_organizers").unwrap_or_default()).unwrap_or_default(),
+    // Helper method to safely convert database row to Event
+    fn row_to_event(row: &sqlx::sqlite::SqliteRow) -> Result<Event, RowConversionError> {
+        Ok(Event {
+            id: row.get_uuid("id")?,
+            title: row.get_string("title")?,
+            description: row.get_string("description")?,
+            category_id: row.get_string("category_id")?,
+            start_date: row.get_datetime("start_date")?,
+            end_date: row.get_datetime("end_date")?,
+            timezone: row.get_string("timezone")?,
+            location_type: row.get_location_type("location_type")?,
+            location_name: row.get_optional_string("location_name")?,
+            address: row.get_optional_string("address")?,
+            virtual_link: row.get_optional_string("virtual_link")?,
+            virtual_access_code: row.get_optional_string("virtual_access_code")?,
+            organizer_id: row.get_uuid("organizer_id")?,
+            co_organizers: row.get_json("co_organizers").unwrap_or_default(),
             is_private: row.try_get("is_private").unwrap_or(false),
             requires_approval: row.try_get("requires_approval").unwrap_or(false),
             max_attendees: row.try_get("max_attendees").ok(),
             allow_guests: row.try_get("allow_guests").unwrap_or(false),
             max_guests_per_person: row.try_get("max_guests_per_person").ok(),
-            registration_opens: row.try_get("registration_opens").ok().map(|dt| DateTime::from_naive_utc_and_offset(dt, Utc)),
-            registration_closes: row.try_get("registration_closes").ok().map(|dt| DateTime::from_naive_utc_and_offset(dt, Utc)),
+            registration_opens: row.get_optional_datetime("registration_opens")?,
+            registration_closes: row.get_optional_datetime("registration_closes")?,
             registration_required: row.try_get("registration_required").unwrap_or(false),
             allow_waitlist: row.try_get("allow_waitlist").unwrap_or(false),
             send_reminders: row.try_get("send_reminders").unwrap_or(false),
             collect_dietary_info: row.try_get("collect_dietary_info").unwrap_or(false),
             collect_accessibility_info: row.try_get("collect_accessibility_info").unwrap_or(false),
-            image_url: row.try_get("image_url").ok(),
-            custom_fields: row.try_get("custom_fields").ok(),
-            status: Self::string_to_event_status(&row.try_get::<String, _>("status").unwrap_or_default()),
-            created_at: DateTime::from_naive_utc_and_offset(row.try_get("created_at").unwrap_or_else(|_| chrono::DateTime::from_timestamp(0, 0).unwrap().naive_utc()), Utc),
-            updated_at: DateTime::from_naive_utc_and_offset(row.try_get("updated_at").unwrap_or_else(|_| chrono::DateTime::from_timestamp(0, 0).unwrap().naive_utc()), Utc),
-        }
+            image_url: row.get_optional_string("image_url")?,
+            custom_fields: row.get_optional_string("custom_fields")?,
+            status: row.get_event_status("status")?,
+            created_at: row.get_datetime("created_at")?,
+            updated_at: row.get_datetime("updated_at")?,
+        })
     }
 
     fn location_type_to_string(location_type: &LocationType) -> &'static str {
@@ -58,15 +58,6 @@ impl SqliteEventRepository {
             LocationType::Physical => "physical",
             LocationType::Virtual => "virtual",
             LocationType::Hybrid => "hybrid",
-        }
-    }
-
-    fn string_to_location_type(s: &str) -> LocationType {
-        match s {
-            "physical" => LocationType::Physical,
-            "virtual" => LocationType::Virtual,
-            "hybrid" => LocationType::Hybrid,
-            _ => LocationType::Physical, // Default
         }
     }
 
@@ -79,14 +70,52 @@ impl SqliteEventRepository {
         }
     }
 
-    fn string_to_event_status(s: &str) -> EventStatus {
-        match s {
-            "draft" => EventStatus::Draft,
-            "published" => EventStatus::Published,
-            "cancelled" => EventStatus::Cancelled,
-            "completed" => EventStatus::Completed,
-            _ => EventStatus::Draft, // Default
+    // Diagnose which foreign key constraint is failing by checking if referenced entities exist
+    async fn diagnose_foreign_key_violation(&self, event: &Event, _db_message: &str) -> aqio_core::DomainError {
+        // Check if category exists
+        let category_exists = sqlx::query_scalar::<_, bool>(
+            "SELECT EXISTS(SELECT 1 FROM event_categories WHERE id = ? AND is_active = TRUE)"
+        )
+        .bind(&event.category_id)
+        .fetch_one(&self.pool)
+        .await
+        .unwrap_or(false);
+
+        if !category_exists {
+            return aqio_core::DomainError::validation_constraint(
+                "category_id",
+                &format!(
+                    "Category '{}' does not exist or is inactive. Available categories can be found at GET /api/v1/categories", 
+                    event.category_id
+                ),
+                "FOREIGN KEY",
+                Some(&event.category_id)
+            );
         }
+
+        // Check if organizer exists by database ID (maintains foreign key constraint integrity)
+        let organizer_exists = sqlx::query_scalar::<_, bool>(
+            "SELECT EXISTS(SELECT 1 FROM users WHERE id = ? AND is_active = TRUE)"
+        )
+        .bind(event.organizer_id.to_string())
+        .fetch_one(&self.pool)
+        .await
+        .unwrap_or(false);
+
+        if !organizer_exists {
+            return aqio_core::DomainError::validation_constraint(
+                "organizer_id",
+                &format!(
+                    "Organizer user '{}' does not exist or is inactive. Please ensure the user account is created first.", 
+                    event.organizer_id
+                ),
+                "FOREIGN KEY",
+                Some(&event.organizer_id.to_string())
+            );
+        }
+
+        // If we get here, it's some other foreign key constraint we don't know about
+        aqio_core::DomainError::business_rule("Foreign key constraint violation: Unknown referenced entity does not exist")
     }
 
     #[instrument(skip(self))]
@@ -196,6 +225,11 @@ impl EventRepository for SqliteEventRepository {
                 let infrastructure_error = InfrastructureError::from(e);
                 match infrastructure_error {
                     InfrastructureError::DomainError { source } => Err(source),
+                    InfrastructureError::ForeignKeyConstraintViolation { message } => {
+                        // We have context about what we were trying to insert
+                        let specific_error = self.diagnose_foreign_key_violation(&event, &message).await;
+                        Err(specific_error)
+                    }
                     other => Err(other.into()),
                 }
             }
@@ -214,7 +248,8 @@ impl EventRepository for SqliteEventRepository {
 
         match result {
             Ok(Some(row)) => {
-                let event = Self::row_to_event(&row);
+                let event = Self::row_to_event(&row)
+                    .map_err(InfrastructureError::from)?;
                 debug!("Found event: {}", event.title);
                 Ok(Some(event))
             }
@@ -318,7 +353,10 @@ impl EventRepository for SqliteEventRepository {
 
         match result {
             Ok(rows) => {
-                let events: Vec<Event> = rows.iter().map(Self::row_to_event).collect();
+                let events: Result<Vec<Event>, RowConversionError> = rows.iter()
+                    .map(Self::row_to_event)
+                    .collect();
+                let events = events.map_err(InfrastructureError::from)?;
                 debug!("Found {} events for organizer: {}", events.len(), organizer_id);
                 Ok(PaginatedResult::new(events, total_count, pagination))
             }
@@ -343,7 +381,10 @@ impl EventRepository for SqliteEventRepository {
 
         match result {
             Ok(rows) => {
-                let events: Vec<Event> = rows.iter().map(Self::row_to_event).collect();
+                let events: Result<Vec<Event>, RowConversionError> = rows.iter()
+                    .map(Self::row_to_event)
+                    .collect();
+                let events = events.map_err(InfrastructureError::from)?;
                 debug!("Found {} events for category: {}", events.len(), category_id);
                 Ok(events)
             }
@@ -380,7 +421,10 @@ impl EventRepository for SqliteEventRepository {
         
         match result {
             Ok(rows) => {
-                let events: Vec<Event> = rows.iter().map(Self::row_to_event).collect();
+                let events: Result<Vec<Event>, RowConversionError> = rows.iter()
+                    .map(Self::row_to_event)
+                    .collect();
+                let events = events.map_err(InfrastructureError::from)?;
                 
                 // Get total count using the helper method
                 let total_count = match self.count_events_with_filter(filter).await {
@@ -428,7 +472,10 @@ impl EventRepository for SqliteEventRepository {
 
         match result {
             Ok(rows) => {
-                let events: Vec<Event> = rows.iter().map(Self::row_to_event).collect();
+                let events: Result<Vec<Event>, RowConversionError> = rows.iter()
+                    .map(Self::row_to_event)
+                    .collect();
+                let events = events.map_err(InfrastructureError::from)?;
                 debug!("Listed {} events out of {} total", events.len(), total_count);
                 Ok(PaginatedResult::new(events, total_count, pagination))
             }

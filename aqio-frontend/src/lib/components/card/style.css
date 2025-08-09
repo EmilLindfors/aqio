@@ -1,0 +1,188 @@
+/* AQIO Card Component */
+.aqio-card {
+  background-color: var(--aqio-background);
+  border: 1px solid var(--aqio-border);
+  border-radius: var(--aqio-radius-lg);
+  padding: var(--aqio-space-6);
+  transition: var(--aqio-transition-fast);
+}
+
+.aqio-card[data-elevated="true"] {
+  box-shadow: var(--aqio-shadow-md);
+}
+
+.aqio-card[data-interactive="true"] {
+  cursor: pointer;
+}
+
+.aqio-card[data-interactive="true"]:hover {
+  border-color: var(--aqio-border-hover);
+  box-shadow: var(--aqio-shadow-lg);
+  transform: translateY(-2px);
+}
+
+.aqio-card[data-interactive="true"]:active {
+  transform: translateY(0);
+  box-shadow: var(--aqio-shadow-md);
+}
+
+/* Event Card Specific Styles */
+.aqio-event-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--aqio-space-4);
+  min-height: 200px;
+}
+
+.aqio-event-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: var(--aqio-space-3);
+  flex-wrap: wrap;
+}
+
+.aqio-event-card-badge {
+  padding: var(--aqio-space-1) var(--aqio-space-3);
+  border-radius: var(--aqio-radius-full);
+  font-size: var(--aqio-text-sm);
+  font-weight: var(--aqio-font-medium);
+  text-transform: uppercase;
+  letter-spacing: 0.025em;
+}
+
+.aqio-event-badge-blue {
+  background-color: var(--aqio-blue-light);
+  color: var(--aqio-blue-primary);
+}
+
+.aqio-event-badge-green {
+  background-color: var(--aqio-success-light);
+  color: var(--aqio-success);
+}
+
+.aqio-event-badge-purple {
+  background-color: #F3E8FF;
+  color: #7C3AED;
+}
+
+.aqio-event-badge-orange {
+  background-color: var(--aqio-orange-light);
+  color: var(--aqio-orange-primary);
+}
+
+.aqio-event-badge-gray {
+  background-color: var(--aqio-surface);
+  color: var(--aqio-text-secondary);
+}
+
+.aqio-event-card-date {
+  font-size: var(--aqio-text-sm);
+  color: var(--aqio-text-secondary);
+  white-space: nowrap;
+}
+
+.aqio-event-card-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: var(--aqio-space-2);
+}
+
+.aqio-event-card-title {
+  margin: 0;
+  font-size: var(--aqio-text-lg);
+  font-weight: var(--aqio-font-semibold);
+  color: var(--aqio-text);
+  line-height: var(--aqio-leading-tight);
+}
+
+.aqio-event-card-description {
+  margin: 0;
+  font-size: var(--aqio-text-sm);
+  color: var(--aqio-text-secondary);
+  line-height: var(--aqio-leading-normal);
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.aqio-event-card-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--aqio-space-3);
+  flex-wrap: wrap;
+  margin-top: auto;
+}
+
+.aqio-event-card-location {
+  font-size: var(--aqio-text-sm);
+  color: var(--aqio-text-secondary);
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.aqio-event-card-attendees {
+  font-size: var(--aqio-text-sm);
+  color: var(--aqio-text-secondary);
+  white-space: nowrap;
+}
+
+/* Dark theme adjustments */
+.aqio-theme-dark .aqio-event-badge-purple {
+  background-color: #4C1D95;
+  color: #C4B5FD;
+}
+
+/* Responsive design */
+@media (max-width: 640px) {
+  .aqio-event-card-header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  
+  .aqio-event-card-footer {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: var(--aqio-space-2);
+  }
+  
+  .aqio-event-card-location {
+    white-space: normal;
+  }
+}
+
+/* Hover effects for Norwegian Aquaculture theme */
+.aqio-event-card:hover .aqio-event-card-title {
+  color: var(--aqio-blue-primary);
+}
+
+.aqio-event-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: linear-gradient(90deg, 
+    var(--aqio-blue-primary), 
+    var(--aqio-green-primary), 
+    var(--aqio-orange-primary)
+  );
+  border-radius: var(--aqio-radius-lg) var(--aqio-radius-lg) 0 0;
+  opacity: 0;
+  transition: var(--aqio-transition-fast);
+}
+
+.aqio-event-card {
+  position: relative;
+}
+
+.aqio-event-card:hover::before {
+  opacity: 1;
+}

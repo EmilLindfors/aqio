@@ -26,6 +26,13 @@ impl Claims {
             .map(|roles| roles.contains(&"admin".to_string()))
             .unwrap_or(false)
     }
+
+    pub fn is_organizer(&self) -> bool {
+        self.roles
+            .as_ref()
+            .map(|roles| roles.contains(&"organizer".to_string()))
+            .unwrap_or(false)
+    }
 }
 
 #[derive(Clone)]

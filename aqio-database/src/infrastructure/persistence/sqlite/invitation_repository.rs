@@ -1,15 +1,13 @@
-use crate::domain::{
-    errors::{InfrastructureError},
-    repositories::EventInvitationRepository,
-};
+use crate::domain::errors::{InfrastructureError, SqliteForeignKeyDiagnostic};
+use crate::domain::repositories::EventInvitationRepository;
+use crate::infrastructure::persistence::sqlite::types::{SafeRowGet, RowConversionError};
 use aqio_core::{EventInvitation, InvitationStatus, DomainValidation, DomainResult};
 use crate::infrastructure::persistence::mapping::{
-    map_invitation_status, invitation_status_to_string,
-    map_invitation_method, invitation_method_to_string,
-    datetime_from_naive, optional_datetime_from_naive,
+    invitation_status_to_string,
+    invitation_method_to_string,
 };
 use async_trait::async_trait;
-use sqlx::{Pool, Sqlite, Row};
+use sqlx::{Pool, Sqlite};
 use tracing::{instrument, debug};
 use uuid::Uuid;
 
@@ -23,34 +21,74 @@ impl SqliteInvitationRepository {
         Self { pool }
     }
 
-    // Helper method to convert database row to EventInvitation
-    fn row_to_invitation(row: &sqlx::sqlite::SqliteRow) -> DomainResult<EventInvitation> {
-        // Use the simpler approach like other repositories in this codebase
+    // Helper method to convert database row to EventInvitation using SafeRowGet
+    fn row_to_invitation(row: &sqlx::sqlite::SqliteRow) -> Result<EventInvitation, RowConversionError> {
         Ok(EventInvitation {
-            id: Uuid::parse_str(&row.try_get::<String, _>("id").unwrap_or_default()).unwrap_or_default(),
-            event_id: Uuid::parse_str(&row.try_get::<String, _>("event_id").unwrap_or_default()).unwrap_or_default(),
-            invited_user_id: {
-                let opt_str: Option<String> = row.try_get("invited_user_id").ok();
-                opt_str.and_then(|s| Uuid::parse_str(&s).ok())
-            },
-            invited_contact_id: {
-                let opt_str: Option<String> = row.try_get("invited_contact_id").ok();
-                opt_str.and_then(|s| Uuid::parse_str(&s).ok())
-            },
-            invited_email: row.try_get("invited_email").ok(),
-            invited_name: row.try_get("invited_name").ok(),
-            inviter_id: Uuid::parse_str(&row.try_get::<String, _>("inviter_id").unwrap_or_default()).unwrap_or_default(),
-            invitation_method: map_invitation_method(&row.try_get::<String, _>("invitation_method").unwrap_or_else(|_| "email".to_string())),
-            personal_message: row.try_get("personal_message").ok(),
-            status: map_invitation_status(&row.try_get::<String, _>("status").unwrap_or_else(|_| "pending".to_string())),
-            sent_at: optional_datetime_from_naive(row.try_get("sent_at").ok()),
-            opened_at: optional_datetime_from_naive(row.try_get("opened_at").ok()),
-            responded_at: optional_datetime_from_naive(row.try_get("responded_at").ok()),
-            invitation_token: row.try_get("invitation_token").ok(),
-            expires_at: optional_datetime_from_naive(row.try_get("expires_at").ok()),
-            created_at: datetime_from_naive(row.try_get("created_at").unwrap_or_else(|_| chrono::DateTime::from_timestamp(0, 0).unwrap().naive_utc())),
-            updated_at: datetime_from_naive(row.try_get("updated_at").unwrap_or_else(|_| chrono::DateTime::from_timestamp(0, 0).unwrap().naive_utc())),
+            id: row.get_uuid("id")?,
+            event_id: row.get_uuid("event_id")?,
+            invited_user_id: row.get_optional_uuid("invited_user_id")?,
+            invited_contact_id: row.get_optional_uuid("invited_contact_id")?,
+            invited_email: row.get_optional_string("invited_email")?,
+            invited_name: row.get_optional_string("invited_name")?,
+            inviter_id: row.get_uuid("inviter_id")?,
+            invitation_method: row.get_invitation_method("invitation_method")?,
+            personal_message: row.get_optional_string("personal_message")?,
+            status: row.get_invitation_status("status")?,
+            sent_at: row.get_optional_datetime("sent_at")?,
+            opened_at: row.get_optional_datetime("opened_at")?,
+            responded_at: row.get_optional_datetime("responded_at")?,
+            invitation_token: row.get_optional_string("invitation_token")?,
+            expires_at: row.get_optional_datetime("expires_at")?,
+            created_at: row.get_datetime("created_at")?,
+            updated_at: row.get_datetime("updated_at")?,
         })
+    }
+
+    // Helper method to convert RowConversionError to InfrastructureError  
+    fn conversion_error_to_infrastructure_error(error: RowConversionError) -> InfrastructureError {
+        InfrastructureError::from(error)
+    }
+
+    // Diagnose which foreign key constraint is failing by checking if referenced entities exist
+    async fn diagnose_foreign_key_violation(&self, invitation: &EventInvitation, _db_message: &str) -> aqio_core::DomainError {
+        let diagnostic = SqliteForeignKeyDiagnostic::new(self.pool.clone());
+
+        // Check if event exists
+        let event_exists = diagnostic.check_event_exists(invitation.event_id).await;
+        if !event_exists {
+            return SqliteForeignKeyDiagnostic::create_user_friendly_foreign_key_error(
+                "Invitation",
+                "event_id",
+                &invitation.event_id.to_string(),
+            );
+        }
+
+        // Check if inviter exists
+        let inviter_exists = diagnostic.check_user_exists(invitation.inviter_id).await;
+        if !inviter_exists {
+            return SqliteForeignKeyDiagnostic::create_user_friendly_foreign_key_error(
+                "Invitation",
+                "inviter_id",
+                &invitation.inviter_id.to_string(),
+            );
+        }
+
+        // Check if invited user exists (if provided)
+        if let Some(invited_user_id) = invitation.invited_user_id {
+            let invited_user_exists = diagnostic.check_user_exists(invited_user_id).await;
+            if !invited_user_exists {
+                return SqliteForeignKeyDiagnostic::create_user_friendly_foreign_key_error(
+                    "Invitation",
+                    "invited_user_id",
+                    &invited_user_id.to_string(),
+                );
+            }
+        }
+
+        // If we get here, it's some other foreign key constraint we don't know about
+        aqio_core::DomainError::BusinessRuleViolation {
+            message: "Foreign key constraint violation: Unknown referenced entity does not exist".to_string(),
+        }
     }
 }
 
@@ -73,7 +111,7 @@ impl EventInvitationRepository for SqliteInvitationRepository {
             )
         "#;
 
-        sqlx::query(query)
+        let result = sqlx::query(query)
             .bind(invitation.id.to_string())
             .bind(invitation.event_id.to_string())
             .bind(invitation.invited_user_id.map(|id| id.to_string()))
@@ -92,11 +130,26 @@ impl EventInvitationRepository for SqliteInvitationRepository {
             .bind(invitation.created_at.naive_utc())
             .bind(invitation.updated_at.naive_utc())
             .execute(&self.pool)
-            .await
-            .map_err(InfrastructureError::from)?;
+            .await;
 
-        debug!("Created invitation successfully: {}", invitation.id);
-        Ok(())
+        match result {
+            Ok(_) => {
+                debug!("Created invitation successfully: {}", invitation.id);
+                Ok(())
+            }
+            Err(e) => {
+                let infrastructure_error = InfrastructureError::from(e);
+                match infrastructure_error {
+                    InfrastructureError::DomainError { source } => Err(source),
+                    InfrastructureError::ForeignKeyConstraintViolation { message } => {
+                        // We have context about what we were trying to insert
+                        let specific_error = self.diagnose_foreign_key_violation(&invitation, &message).await;
+                        Err(specific_error)
+                    }
+                    other => Err(other.into()),
+                }
+            }
+        }
     }
 
     #[instrument(skip(self))]
@@ -133,15 +186,30 @@ impl EventInvitationRepository for SqliteInvitationRepository {
             .bind(invitation.updated_at.naive_utc())
             .bind(invitation.id.to_string())
             .execute(&self.pool)
-            .await
-            .map_err(InfrastructureError::from)?;
+            .await;
 
-        if result.rows_affected() == 0 {
-            return Err(aqio_core::DomainError::not_found("EventInvitation", invitation.id));
+        match result {
+            Ok(query_result) => {
+                if query_result.rows_affected() == 0 {
+                    Err(aqio_core::DomainError::not_found("EventInvitation", invitation.id))
+                } else {
+                    debug!("Updated invitation successfully: {}", invitation.id);
+                    Ok(())
+                }
+            }
+            Err(e) => {
+                let infrastructure_error = InfrastructureError::from(e);
+                match infrastructure_error {
+                    InfrastructureError::DomainError { source } => Err(source),
+                    InfrastructureError::ForeignKeyConstraintViolation { message } => {
+                        // We have context about what we were trying to update
+                        let specific_error = self.diagnose_foreign_key_violation(&invitation, &message).await;
+                        Err(specific_error)
+                    }
+                    other => Err(other.into()),
+                }
+            }
         }
-
-        debug!("Updated invitation successfully: {}", invitation.id);
-        Ok(())
     }
 
     #[instrument(skip(self))]
@@ -158,9 +226,16 @@ impl EventInvitationRepository for SqliteInvitationRepository {
 
         match row {
             Some(row) => {
-                let invitation = Self::row_to_invitation(&row)?;
-                debug!("Found invitation: {}", id);
-                Ok(Some(invitation))
+                match Self::row_to_invitation(&row) {
+                    Ok(invitation) => {
+                        debug!("Found invitation: {}", id);
+                        Ok(Some(invitation))
+                    }
+                    Err(conv_error) => {
+                        let infrastructure_error = Self::conversion_error_to_infrastructure_error(conv_error);
+                        Err(infrastructure_error.into())
+                    }
+                }
             }
             None => {
                 debug!("No invitation found with id: {}", id);
@@ -183,7 +258,13 @@ impl EventInvitationRepository for SqliteInvitationRepository {
 
         let mut invitations = Vec::new();
         for row in rows {
-            invitations.push(Self::row_to_invitation(&row)?);
+            match Self::row_to_invitation(&row) {
+                Ok(invitation) => invitations.push(invitation),
+                Err(conv_error) => {
+                    let infrastructure_error = Self::conversion_error_to_infrastructure_error(conv_error);
+                    return Err(infrastructure_error.into());
+                }
+            }
         }
 
         debug!("Found {} invitations for event: {}", invitations.len(), event_id);
@@ -204,7 +285,13 @@ impl EventInvitationRepository for SqliteInvitationRepository {
 
         let mut invitations = Vec::new();
         for row in rows {
-            invitations.push(Self::row_to_invitation(&row)?);
+            match Self::row_to_invitation(&row) {
+                Ok(invitation) => invitations.push(invitation),
+                Err(conv_error) => {
+                    let infrastructure_error = Self::conversion_error_to_infrastructure_error(conv_error);
+                    return Err(infrastructure_error.into());
+                }
+            }
         }
 
         debug!("Found {} invitations for user: {}", invitations.len(), user_id);
@@ -223,8 +310,13 @@ impl EventInvitationRepository for SqliteInvitationRepository {
 
         match row_result {
             Ok(Some(row)) => {
-                let invitation = Self::row_to_invitation(&row)?;
-                Ok(Some(invitation))
+                match Self::row_to_invitation(&row) {
+                    Ok(invitation) => Ok(Some(invitation)),
+                    Err(conv_error) => {
+                        let infrastructure_error = Self::conversion_error_to_infrastructure_error(conv_error);
+                        Err(infrastructure_error.into())
+                    }
+                }
             }
             Ok(None) => Ok(None),
             Err(e) => Err(InfrastructureError::from(e).into()),
@@ -245,7 +337,13 @@ impl EventInvitationRepository for SqliteInvitationRepository {
 
         let mut invitations = Vec::new();
         for row in rows {
-            invitations.push(Self::row_to_invitation(&row)?);
+            match Self::row_to_invitation(&row) {
+                Ok(invitation) => invitations.push(invitation),
+                Err(conv_error) => {
+                    let infrastructure_error = Self::conversion_error_to_infrastructure_error(conv_error);
+                    return Err(infrastructure_error.into());
+                }
+            }
         }
 
         debug!("Found {} invitations for email: {}", invitations.len(), email);

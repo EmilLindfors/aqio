@@ -101,10 +101,11 @@ impl ApiError {
                 aqio_core::DomainError::NotFound { .. } => StatusCode::NOT_FOUND,
                 aqio_core::DomainError::ValidationError { .. } => StatusCode::BAD_REQUEST,
                 aqio_core::DomainError::ConflictError { .. } => StatusCode::CONFLICT,
-                aqio_core::DomainError::BusinessRuleViolation { .. } => {
-                    StatusCode::UNPROCESSABLE_ENTITY
-                }
+                aqio_core::DomainError::BusinessRuleViolation { .. } => StatusCode::UNPROCESSABLE_ENTITY,
                 aqio_core::DomainError::UnauthorizedError { .. } => StatusCode::UNAUTHORIZED,
+                aqio_core::DomainError::DataIntegrityError { .. } => StatusCode::INTERNAL_SERVER_ERROR,
+                aqio_core::DomainError::SystemUnavailable { .. } => StatusCode::SERVICE_UNAVAILABLE,
+                aqio_core::DomainError::ExternalServiceError { .. } => StatusCode::SERVICE_UNAVAILABLE,
             },
             Self::Authentication { .. } => StatusCode::UNAUTHORIZED,
             Self::Authorization { .. } => StatusCode::FORBIDDEN,
@@ -126,6 +127,9 @@ impl ApiError {
                 aqio_core::DomainError::ConflictError { .. } => "DOMAIN_CONFLICT",
                 aqio_core::DomainError::BusinessRuleViolation { .. } => "BUSINESS_RULE_VIOLATION",
                 aqio_core::DomainError::UnauthorizedError { .. } => "DOMAIN_UNAUTHORIZED",
+                aqio_core::DomainError::DataIntegrityError { .. } => "DATA_INTEGRITY_ERROR",
+                aqio_core::DomainError::SystemUnavailable { .. } => "SYSTEM_UNAVAILABLE",
+                aqio_core::DomainError::ExternalServiceError { .. } => "EXTERNAL_SERVICE_ERROR",
             },
             Self::Authentication { .. } => "AUTHENTICATION_ERROR",
             Self::Authorization { .. } => "AUTHORIZATION_ERROR",
@@ -156,18 +160,25 @@ impl IntoResponse for ApiError {
                 }
             }),
             Self::Domain { source } => match source {
-                aqio_core::DomainError::ValidationError { field, message } => json!({
-                    "error": {
-                        "code": error_code,
-                        "message": message,
-                        "field": field,
+                aqio_core::DomainError::ValidationError { field, message, constraint, value } => {
+                    let mut error_obj = json!({
+                        "error": {
+                            "code": error_code,
+                            "message": message,
+                            "field": field,
+                        }
+                    });
+                    
+                    if let Some(constraint_name) = constraint {
+                        error_obj["error"]["constraint"] = serde_json::Value::String(constraint_name.clone());
                     }
-                }),
-                aqio_core::DomainError::NotFound {
-                    entity,
-                    identifier,
-                    value,
-                } => json!({
+                    if let Some(field_value) = value {
+                        error_obj["error"]["value"] = serde_json::Value::String(field_value.clone());
+                    }
+                    
+                    error_obj
+                }
+                aqio_core::DomainError::NotFound { entity, identifier, value } => json!({
                     "error": {
                         "code": error_code,
                         "message": format!("{} not found", entity),
@@ -176,6 +187,67 @@ impl IntoResponse for ApiError {
                             "identifier": identifier,
                             "value": value,
                         }
+                    }
+                }),
+                aqio_core::DomainError::ConflictError { message, field, conflicting_value } => {
+                    let mut error_obj = json!({
+                        "error": {
+                            "code": error_code,
+                            "message": message,
+                        }
+                    });
+                    
+                    if let Some(field_name) = field {
+                        error_obj["error"]["field"] = serde_json::Value::String(field_name.clone());
+                    }
+                    if let Some(value) = conflicting_value {
+                        error_obj["error"]["conflicting_value"] = serde_json::Value::String(value.clone());
+                    }
+                    
+                    error_obj
+                }
+                aqio_core::DomainError::DataIntegrityError { message, field, expected, actual } => {
+                    let mut error_obj = json!({
+                        "error": {
+                            "code": error_code,
+                            "message": message,
+                            "type": "data_integrity_error",
+                        }
+                    });
+                    
+                    if let Some(field_name) = field {
+                        error_obj["error"]["field"] = serde_json::Value::String(field_name.clone());
+                    }
+                    if let Some(expected_value) = expected {
+                        error_obj["error"]["expected"] = serde_json::Value::String(expected_value.clone());
+                    }
+                    if let Some(actual_value) = actual {
+                        error_obj["error"]["actual"] = serde_json::Value::String(actual_value.clone());
+                    }
+                    
+                    error_obj
+                }
+                aqio_core::DomainError::SystemUnavailable { message, component } => {
+                    let mut error_obj = json!({
+                        "error": {
+                            "code": error_code,
+                            "message": message,
+                            "type": "system_unavailable",
+                        }
+                    });
+                    
+                    if let Some(component_name) = component {
+                        error_obj["error"]["component"] = serde_json::Value::String(component_name.clone());
+                    }
+                    
+                    error_obj
+                }
+                aqio_core::DomainError::ExternalServiceError { service, message } => json!({
+                    "error": {
+                        "code": error_code,
+                        "message": message,
+                        "service": service,
+                        "type": "external_service_error",
                     }
                 }),
                 _ => json!({

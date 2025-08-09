@@ -1,0 +1,194 @@
+/* AQIO Button Component */
+.aqio-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--aqio-space-2);
+  font-family: var(--aqio-font-family);
+  font-weight: var(--aqio-font-medium);
+  border: none;
+  border-radius: var(--aqio-radius-md);
+  cursor: pointer;
+  transition: var(--aqio-transition-fast);
+  text-decoration: none;
+  white-space: nowrap;
+  user-select: none;
+  position: relative;
+  box-shadow: var(--aqio-shadow-sm);
+}
+
+.aqio-button:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px var(--aqio-focus-ring);
+}
+
+/* Button Sizes */
+.aqio-button[data-size="sm"] {
+  padding: var(--aqio-space-2) var(--aqio-space-3);
+  font-size: var(--aqio-text-sm);
+  min-height: 2rem;
+}
+
+.aqio-button[data-size="md"] {
+  padding: var(--aqio-space-3) var(--aqio-space-4);
+  font-size: var(--aqio-text-base);
+  min-height: 2.5rem;
+}
+
+.aqio-button[data-size="lg"] {
+  padding: var(--aqio-space-4) var(--aqio-space-6);
+  font-size: var(--aqio-text-lg);
+  min-height: 3rem;
+}
+
+/* Button Variants */
+
+/* Primary - Ocean Blue */
+.aqio-button[data-variant="primary"] {
+  background-color: var(--aqio-blue-primary);
+  color: var(--aqio-text-on-primary);
+}
+
+.aqio-button[data-variant="primary"]:hover:not([data-disabled="true"]) {
+  background-color: var(--aqio-blue-secondary);
+  box-shadow: var(--aqio-shadow-md);
+}
+
+.aqio-button[data-variant="primary"]:active:not([data-disabled="true"]) {
+  transform: translateY(1px);
+  box-shadow: var(--aqio-shadow-sm);
+}
+
+/* Secondary - Surface with border */
+.aqio-button[data-variant="secondary"] {
+  background-color: var(--aqio-surface);
+  color: var(--aqio-text);
+  border: 1px solid var(--aqio-border);
+  box-shadow: none;
+}
+
+.aqio-button[data-variant="secondary"]:hover:not([data-disabled="true"]) {
+  background-color: var(--aqio-surface-hover);
+  border-color: var(--aqio-border-hover);
+  box-shadow: var(--aqio-shadow-sm);
+}
+
+/* Success - Forest Green */
+.aqio-button[data-variant="success"] {
+  background-color: var(--aqio-success);
+  color: var(--aqio-text-on-primary);
+}
+
+.aqio-button[data-variant="success"]:hover:not([data-disabled="true"]) {
+  background-color: var(--aqio-green-primary);
+  box-shadow: var(--aqio-shadow-md);
+}
+
+/* Warning - Amber */
+.aqio-button[data-variant="warning"] {
+  background-color: var(--aqio-warning);
+  color: var(--aqio-text-on-primary);
+}
+
+.aqio-button[data-variant="warning"]:hover:not([data-disabled="true"]) {
+  background-color: #D97706;
+  box-shadow: var(--aqio-shadow-md);
+}
+
+/* Danger - Alert Red */
+.aqio-button[data-variant="danger"] {
+  background-color: var(--aqio-error);
+  color: var(--aqio-text-on-primary);
+}
+
+.aqio-button[data-variant="danger"]:hover:not([data-disabled="true"]) {
+  background-color: #DC2626;
+  box-shadow: var(--aqio-shadow-md);
+}
+
+/* Ghost - Transparent */
+.aqio-button[data-variant="ghost"] {
+  background-color: transparent;
+  color: var(--aqio-text);
+  box-shadow: none;
+}
+
+.aqio-button[data-variant="ghost"]:hover:not([data-disabled="true"]) {
+  background-color: var(--aqio-surface-hover);
+}
+
+/* Link - Text style */
+.aqio-button[data-variant="link"] {
+  background-color: transparent;
+  color: var(--aqio-blue-primary);
+  box-shadow: none;
+  text-decoration: underline;
+  text-underline-offset: 4px;
+}
+
+.aqio-button[data-variant="link"]:hover:not([data-disabled="true"]) {
+  color: var(--aqio-blue-secondary);
+}
+
+/* Disabled State */
+.aqio-button[data-disabled="true"] {
+  opacity: 0.6;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
+/* Loading State */
+.aqio-button[data-loading="true"] {
+  cursor: wait;
+}
+
+.aqio-button[data-loading="true"] .aqio-button-content {
+  opacity: 0.7;
+}
+
+.aqio-button-spinner {
+  animation: aqio-spin 1s linear infinite;
+}
+
+.aqio-button-content {
+  display: flex;
+  align-items: center;
+  gap: var(--aqio-space-2);
+}
+
+/* Animations */
+@keyframes aqio-spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* Focus ring for accessibility */
+.aqio-button:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px var(--aqio-background), 0 0 0 4px var(--aqio-focus-ring);
+}
+
+/* Special styling for Norwegian Aquaculture theme */
+.aqio-button[data-variant="primary"] {
+  position: relative;
+  overflow: hidden;
+}
+
+.aqio-button[data-variant="primary"]::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+  transition: var(--aqio-transition-normal);
+}
+
+.aqio-button[data-variant="primary"]:hover::before:not([data-disabled="true"]) {
+  left: 100%;
+}

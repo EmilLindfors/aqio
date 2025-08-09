@@ -24,7 +24,7 @@ fn map_event_response(er: super::api_client::EventResponse) -> EventListItem {
     }
 }
 
-#[async_trait::async_trait]
+#[async_trait::async_trait(?Send)]
 impl EventRepository for ApiEventRepository {
     async fn list_events(&self) -> Result<Vec<EventListItem>, String> {
         let events = self.api.list_events().await?;

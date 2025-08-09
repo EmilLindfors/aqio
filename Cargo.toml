@@ -1,5 +1,5 @@
 [workspace]
-members = [ "aqio-frontend", "aqio-api", "aqio-database", "aqio-core"]
+members = [ "aqio-frontend", "aqio-api", "aqio-database", "aqio-core", "aqio-cli"]
 resolver = "2"
 
 [workspace.package]

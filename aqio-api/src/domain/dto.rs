@@ -3,6 +3,7 @@
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
+use utoipa::{ToSchema, IntoParams};
 
 use crate::domain::errors::{ApiError, ApiResult};
 use aqio_core::*;
@@ -11,7 +12,7 @@ use aqio_core::*;
 // Event DTOs
 // ============================================================================
 
-#[derive(Deserialize, Debug)]
+#[derive(Deserialize, Debug, ToSchema)]
 pub struct CreateEventRequest {
     pub title: String,
     pub description: String,
@@ -135,7 +136,7 @@ impl CreateEventRequest {
     }
 }
 
-#[derive(Serialize, Debug)]
+#[derive(Serialize, Debug, ToSchema)]
 pub struct EventResponse {
     pub id: Uuid,
     pub title: String,
@@ -210,7 +211,7 @@ impl From<Event> for EventResponse {
 // Query Parameter DTOs
 // ============================================================================
 
-#[derive(Deserialize, Debug)]
+#[derive(Deserialize, Debug, ToSchema, IntoParams)]
 pub struct ListEventsQuery {
     pub page: Option<u32>,
     pub limit: Option<u32>,
@@ -248,7 +249,7 @@ impl ListEventsQuery {
     }
 }
 
-#[derive(Deserialize, Debug)]
+#[derive(Deserialize, Debug, ToSchema, IntoParams)]
 pub struct PaginationQuery {
     pub page: Option<u32>,
     pub limit: Option<u32>,
@@ -269,13 +270,13 @@ impl PaginationQuery {
 // Response Wrapper DTOs
 // ============================================================================
 
-#[derive(Serialize, Debug)]
+#[derive(Serialize, Debug, ToSchema)]
 pub struct PaginatedEventResponse {
     pub items: Vec<EventResponse>,
     pub pagination: PaginationInfo,
 }
 
-#[derive(Serialize, Debug)]
+#[derive(Serialize, Debug, ToSchema)]
 pub struct PaginationInfo {
     pub page: u32,
     pub limit: i64,
@@ -304,7 +305,7 @@ impl PaginatedEventResponse {
     }
 }
 
-#[derive(Serialize, Debug)]
+#[derive(Serialize, Debug, ToSchema)]
 pub struct ApiResponse<T> {
     pub success: bool,
     pub data: Option<T>,
@@ -333,7 +334,7 @@ impl<T> ApiResponse<T> {
 // User DTOs
 // ============================================================================
 
-#[derive(Deserialize, Debug)]
+#[derive(Deserialize, Debug, ToSchema)]
 pub struct CreateUserRequest {
     pub keycloak_id: String,
     pub email: String,
@@ -367,7 +368,7 @@ impl CreateUserRequest {
     }
 }
 
-#[derive(Deserialize, Debug)]
+#[derive(Deserialize, Debug, ToSchema)]
 pub struct UpdateUserRequest {
     pub email: Option<String>,
     pub name: Option<String>,
@@ -409,7 +410,7 @@ impl UpdateUserRequest {
     }
 }
 
-#[derive(Serialize, Debug)]
+#[derive(Serialize, Debug, ToSchema)]
 pub struct UserResponse {
     pub id: Uuid,
     pub keycloak_id: String,
@@ -438,7 +439,7 @@ impl From<User> for UserResponse {
     }
 }
 
-#[derive(Serialize, Debug)]
+#[derive(Serialize, Debug, ToSchema)]
 pub struct PaginatedUserResponse {
     pub items: Vec<UserResponse>,
     pub pagination: PaginationInfo,
@@ -469,7 +470,7 @@ impl PaginatedUserResponse {
 // Event Category DTOs
 // ============================================================================
 
-#[derive(Deserialize, Debug)]
+#[derive(Deserialize, Debug, ToSchema)]
 pub struct CreateEventCategoryRequest {
     pub id: String,
     pub name: String,
@@ -501,7 +502,7 @@ impl CreateEventCategoryRequest {
     }
 }
 
-#[derive(Deserialize, Debug)]
+#[derive(Deserialize, Debug, ToSchema)]
 pub struct UpdateEventCategoryRequest {
     pub name: Option<String>,
     pub description: Option<Option<String>>,
@@ -539,7 +540,7 @@ impl UpdateEventCategoryRequest {
     }
 }
 
-#[derive(Serialize, Debug)]
+#[derive(Serialize, Debug, ToSchema)]
 pub struct EventCategoryResponse {
     pub id: String,
     pub name: String,
@@ -568,7 +569,7 @@ impl From<EventCategory> for EventCategoryResponse {
 // Health Check DTOs
 // ============================================================================
 
-#[derive(Serialize, Debug)]
+#[derive(Serialize, Debug, ToSchema)]
 pub struct HealthResponse {
     pub status: String,
     pub timestamp: DateTime<Utc>,
@@ -576,13 +577,13 @@ pub struct HealthResponse {
     pub services: HealthServices,
 }
 
-#[derive(Serialize, Debug)]
+#[derive(Serialize, Debug, ToSchema)]
 pub struct HealthServices {
     pub database: ServiceHealth,
     pub auth: ServiceHealth,
 }
 
-#[derive(Serialize, Debug)]
+#[derive(Serialize, Debug, ToSchema)]
 pub struct ServiceHealth {
     pub status: String,
     pub details: Option<String>,
@@ -630,7 +631,7 @@ impl HealthResponse {
 // Invitation DTOs
 // ============================================================================
 
-#[derive(Deserialize, Debug)]
+#[derive(Deserialize, Debug, ToSchema)]
 pub struct CreateInvitationRequest {
     pub invited_user_id: Option<Uuid>,
     pub invited_email: Option<String>,
@@ -672,12 +673,12 @@ impl CreateInvitationRequest {
     }
 }
 
-#[derive(Deserialize, Debug)]
+#[derive(Deserialize, Debug, ToSchema)]
 pub struct UpdateInvitationStatusRequest {
     pub status: InvitationStatus,
 }
 
-#[derive(Serialize, Debug)]
+#[derive(Serialize, Debug, ToSchema)]
 pub struct InvitationResponse {
     pub id: Uuid,
     pub event_id: Uuid,
@@ -716,4 +717,238 @@ impl From<EventInvitation> for InvitationResponse {
             updated_at: inv.updated_at,
         }
     }
+}
+
+// ============================================================================
+// Event Registration DTOs
+// ============================================================================
+
+#[derive(Deserialize, Debug, ToSchema)]
+pub struct CreateRegistrationRequest {
+    pub registrant_email: Option<String>,
+    pub registrant_name: Option<String>,
+    pub registrant_phone: Option<String>,
+    pub registrant_company: Option<String>,
+    pub guest_count: Option<i32>,
+    pub guest_names: Option<Vec<String>>,
+    pub dietary_restrictions: Option<String>,
+    pub accessibility_needs: Option<String>,
+    pub special_requests: Option<String>,
+    pub custom_responses: Option<String>,
+}
+
+impl CreateRegistrationRequest {
+    pub fn to_domain_registration(
+        &self,
+        event_id: Uuid,
+        user_id: Option<Uuid>,
+        invitation_id: Option<Uuid>,
+    ) -> ApiResult<EventRegistration> {
+        let now = Utc::now();
+        
+        // Validate required fields
+        if user_id.is_none() && self.registrant_email.is_none() {
+            return Err(ApiError::validation(
+                "registrant_email",
+                "Email is required for non-authenticated users",
+            ));
+        }
+
+        if user_id.is_none() && self.registrant_name.is_none() {
+            return Err(ApiError::validation(
+                "registrant_name", 
+                "Name is required for non-authenticated users",
+            ));
+        }
+
+        let guest_count = self.guest_count.unwrap_or(0);
+        if guest_count < 0 || guest_count > 10 {
+            return Err(ApiError::validation(
+                "guest_count",
+                "Guest count must be between 0 and 10",
+            ));
+        }
+
+        let guest_names = self.guest_names.clone().unwrap_or_default();
+        if guest_names.len() != guest_count as usize {
+            return Err(ApiError::validation(
+                "guest_names",
+                "Number of guest names must match guest count",
+            ));
+        }
+
+        Ok(EventRegistration {
+            id: Uuid::new_v4(),
+            event_id,
+            invitation_id,
+            user_id,
+            external_contact_id: None,
+            registrant_email: self.registrant_email.clone(),
+            registrant_name: self.registrant_name.clone(),
+            registrant_phone: self.registrant_phone.clone(),
+            registrant_company: self.registrant_company.clone(),
+            status: RegistrationStatus::Registered,
+            registration_source: if invitation_id.is_some() {
+                RegistrationSource::Invitation
+            } else {
+                RegistrationSource::Direct
+            },
+            guest_count,
+            guest_names,
+            dietary_restrictions: self.dietary_restrictions.clone(),
+            accessibility_needs: self.accessibility_needs.clone(),
+            special_requests: self.special_requests.clone(),
+            custom_responses: self.custom_responses.clone(),
+            registered_at: now,
+            cancelled_at: None,
+            checked_in_at: None,
+            waitlist_position: None,
+            waitlist_added_at: None,
+            created_at: now,
+            updated_at: now,
+        })
+    }
+}
+
+#[derive(Deserialize, Debug, ToSchema)]
+pub struct UpdateRegistrationRequest {
+    pub registrant_email: Option<String>,
+    pub registrant_name: Option<String>,
+    pub registrant_phone: Option<String>,
+    pub registrant_company: Option<String>,
+    pub guest_count: Option<i32>,
+    pub guest_names: Option<Vec<String>>,
+    pub dietary_restrictions: Option<String>,
+    pub accessibility_needs: Option<String>,
+    pub special_requests: Option<String>,
+    pub custom_responses: Option<String>,
+}
+
+impl UpdateRegistrationRequest {
+    pub fn apply_to_registration(self, mut registration: EventRegistration) -> ApiResult<EventRegistration> {
+        if let Some(email) = self.registrant_email {
+            registration.registrant_email = Some(email);
+        }
+
+        if let Some(name) = self.registrant_name {
+            registration.registrant_name = Some(name);
+        }
+
+        if let Some(phone) = self.registrant_phone {
+            registration.registrant_phone = Some(phone);
+        }
+
+        if let Some(company) = self.registrant_company {
+            registration.registrant_company = Some(company);
+        }
+
+        if let Some(guest_count) = self.guest_count {
+            if guest_count < 0 || guest_count > 10 {
+                return Err(ApiError::validation(
+                    "guest_count",
+                    "Guest count must be between 0 and 10",
+                ));
+            }
+            registration.guest_count = guest_count;
+        }
+
+        if let Some(guest_names) = self.guest_names {
+            if guest_names.len() != registration.guest_count as usize {
+                return Err(ApiError::validation(
+                    "guest_names",
+                    "Number of guest names must match guest count",
+                ));
+            }
+            registration.guest_names = guest_names;
+        }
+
+        if let Some(dietary) = self.dietary_restrictions {
+            registration.dietary_restrictions = Some(dietary);
+        }
+
+        if let Some(accessibility) = self.accessibility_needs {
+            registration.accessibility_needs = Some(accessibility);
+        }
+
+        if let Some(requests) = self.special_requests {
+            registration.special_requests = Some(requests);
+        }
+
+        if let Some(responses) = self.custom_responses {
+            registration.custom_responses = Some(responses);
+        }
+
+        registration.updated_at = Utc::now();
+        Ok(registration)
+    }
+}
+
+#[derive(Deserialize, Debug, ToSchema)]
+pub struct UpdateRegistrationStatusRequest {
+    pub status: RegistrationStatus,
+}
+
+#[derive(Serialize, Debug, ToSchema)]
+pub struct RegistrationResponse {
+    pub id: Uuid,
+    pub event_id: Uuid,
+    pub invitation_id: Option<Uuid>,
+    pub user_id: Option<Uuid>,
+    pub registrant_email: Option<String>,
+    pub registrant_name: Option<String>,
+    pub registrant_phone: Option<String>,
+    pub registrant_company: Option<String>,
+    pub status: RegistrationStatus,
+    pub registration_source: RegistrationSource,
+    pub guest_count: i32,
+    pub guest_names: Vec<String>,
+    pub dietary_restrictions: Option<String>,
+    pub accessibility_needs: Option<String>,
+    pub special_requests: Option<String>,
+    pub custom_responses: Option<String>,
+    pub registered_at: DateTime<Utc>,
+    pub cancelled_at: Option<DateTime<Utc>>,
+    pub checked_in_at: Option<DateTime<Utc>>,
+    pub waitlist_position: Option<i32>,
+    pub waitlist_added_at: Option<DateTime<Utc>>,
+    pub created_at: DateTime<Utc>,
+    pub updated_at: DateTime<Utc>,
+}
+
+impl From<EventRegistration> for RegistrationResponse {
+    fn from(registration: EventRegistration) -> Self {
+        Self {
+            id: registration.id,
+            event_id: registration.event_id,
+            invitation_id: registration.invitation_id,
+            user_id: registration.user_id,
+            registrant_email: registration.registrant_email,
+            registrant_name: registration.registrant_name,
+            registrant_phone: registration.registrant_phone,
+            registrant_company: registration.registrant_company,
+            status: registration.status,
+            registration_source: registration.registration_source,
+            guest_count: registration.guest_count,
+            guest_names: registration.guest_names,
+            dietary_restrictions: registration.dietary_restrictions,
+            accessibility_needs: registration.accessibility_needs,
+            special_requests: registration.special_requests,
+            custom_responses: registration.custom_responses,
+            registered_at: registration.registered_at,
+            cancelled_at: registration.cancelled_at,
+            checked_in_at: registration.checked_in_at,
+            waitlist_position: registration.waitlist_position,
+            waitlist_added_at: registration.waitlist_added_at,
+            created_at: registration.created_at,
+            updated_at: registration.updated_at,
+        }
+    }
+}
+
+#[derive(Serialize, Debug, ToSchema)]
+pub struct EventRegistrationStatsResponse {
+    pub total_registered: usize,
+    pub total_attended: usize,
+    pub total_waitlisted: usize,
+    pub total_cancelled: usize,
 }

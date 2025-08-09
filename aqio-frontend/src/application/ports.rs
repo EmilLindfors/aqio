@@ -10,7 +10,9 @@ pub struct EventListItem {
     pub location: Option<String>,
 }
 
-#[async_trait]
-pub trait EventRepository: Send + Sync {
+// On wasm, futures and some types (e.g., reqwest::Response) are not Send.
+// Allow non-Send futures while keeping the API the same.
+#[async_trait(?Send)]
+pub trait EventRepository {
     async fn list_events(&self) -> Result<Vec<EventListItem>, String>;
 }

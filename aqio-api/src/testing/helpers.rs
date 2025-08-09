@@ -190,6 +190,104 @@ impl TestCategoryBuilder {
     }
 }
 
+pub struct TestRegistrationBuilder {
+    registration: EventRegistration,
+}
+
+impl TestRegistrationBuilder {
+    pub fn new() -> Self {
+        let now = Utc::now();
+        Self {
+            registration: EventRegistration {
+                id: Uuid::new_v4(),
+                event_id: Uuid::new_v4(),
+                invitation_id: None,
+                user_id: Some(Uuid::new_v4()),
+                external_contact_id: None,
+                registrant_email: Some("test@example.com".to_string()),
+                registrant_name: Some("Test User".to_string()),
+                registrant_phone: None,
+                registrant_company: None,
+                status: RegistrationStatus::Registered,
+                registration_source: RegistrationSource::Direct,
+                guest_count: 0,
+                guest_names: vec![],
+                dietary_restrictions: None,
+                accessibility_needs: None,
+                special_requests: None,
+                custom_responses: None,
+                registered_at: now,
+                cancelled_at: None,
+                checked_in_at: None,
+                waitlist_position: None,
+                waitlist_added_at: None,
+                created_at: now,
+                updated_at: now,
+            },
+        }
+    }
+
+    pub fn with_id(mut self, id: Uuid) -> Self {
+        self.registration.id = id;
+        self
+    }
+
+    pub fn with_event(mut self, event_id: Uuid) -> Self {
+        self.registration.event_id = event_id;
+        self
+    }
+
+    pub fn with_user(mut self, user_id: Uuid) -> Self {
+        self.registration.user_id = Some(user_id);
+        self
+    }
+
+    pub fn with_email(mut self, email: impl Into<String>) -> Self {
+        self.registration.registrant_email = Some(email.into());
+        self
+    }
+
+    pub fn with_status(mut self, status: RegistrationStatus) -> Self {
+        self.registration.status = status;
+        self
+    }
+
+    pub fn waitlisted(mut self) -> Self {
+        self.registration.status = RegistrationStatus::Waitlisted;
+        self.registration.waitlist_added_at = Some(Utc::now());
+        self.registration.waitlist_position = Some(1);
+        self
+    }
+
+    pub fn cancelled(mut self) -> Self {
+        self.registration.status = RegistrationStatus::Cancelled;
+        self.registration.cancelled_at = Some(Utc::now());
+        self
+    }
+
+    pub fn attended(mut self) -> Self {
+        self.registration.status = RegistrationStatus::Attended;
+        self.registration.checked_in_at = Some(Utc::now());
+        self
+    }
+
+    pub fn with_guests(mut self, count: i32, names: Vec<String>) -> Self {
+        self.registration.guest_count = count;
+        self.registration.guest_names = names;
+        self
+    }
+
+    pub fn build(self) -> EventRegistration {
+        self.registration
+    }
+}
+
+impl Default for TestRegistrationBuilder {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 // ============================================================================
 // DTO Builders for Request Testing
 // ============================================================================
@@ -318,6 +416,12 @@ pub fn create_mock_invitation_service() -> (InvitationApplicationService, MockIn
     (service, mock_repo)
 }
 // TODO(aqio-api/tests): Will be used once invitation handlers are wired. Keep.
+
+pub fn create_mock_registration_service() -> (EventRegistrationApplicationService, MockEventRegistrationRepository) {
+    let mock_repo = MockEventRegistrationRepository::new();
+    let service = EventRegistrationApplicationService::new(Arc::new(mock_repo.clone()));
+    (service, mock_repo)
+}
 
 // ============================================================================
 // Test Scenario Helpers

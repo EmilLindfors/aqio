@@ -593,3 +593,129 @@ impl EventInvitationRepository for MockInvitationRepository {
         }))
     }
 }
+
+// ============================================================================
+// Mock Event Registration Repository
+// ============================================================================
+
+#[derive(Clone)]
+pub struct MockEventRegistrationRepository {
+    pub registrations: Arc<Mutex<HashMap<Uuid, EventRegistration>>>,
+    pub by_event: Arc<Mutex<HashMap<Uuid, Vec<Uuid>>>>,
+    pub by_user: Arc<Mutex<HashMap<Uuid, Vec<Uuid>>>>,
+    pub should_fail: Arc<Mutex<bool>>,
+}
+
+impl MockEventRegistrationRepository {
+    pub fn new() -> Self {
+        Self {
+            registrations: Arc::new(Mutex::new(HashMap::new())),
+            by_event: Arc::new(Mutex::new(HashMap::new())),
+            by_user: Arc::new(Mutex::new(HashMap::new())),
+            should_fail: Arc::new(Mutex::new(false)),
+        }
+    }
+
+    pub async fn add_registration(&self, registration: EventRegistration) {
+        let mut registrations = self.registrations.lock().await;
+        let mut by_event = self.by_event.lock().await;
+        let mut by_user = self.by_user.lock().await;
+
+        by_event.entry(registration.event_id).or_default().push(registration.id);
+        if let Some(user_id) = registration.user_id {
+            by_user.entry(user_id).or_default().push(registration.id);
+        }
+        registrations.insert(registration.id, registration);
+    }
+
+    pub async fn set_should_fail(&self, should_fail: bool) {
+        *self.should_fail.lock().await = should_fail;
+    }
+
+    async fn check_failure(&self) -> DomainResult<()> {
+        if *self.should_fail.lock().await {
+            return Err(DomainError::business_rule("Mock failure"));
+        }
+        Ok(())
+    }
+}
+
+#[async_trait]
+impl EventRegistrationRepository for MockEventRegistrationRepository {
+    async fn find_by_id(&self, id: Uuid) -> DomainResult<Option<EventRegistration>> {
+        self.check_failure().await?;
+        Ok(self.registrations.lock().await.get(&id).cloned())
+    }
+
+    async fn find_by_event_id(&self, event_id: Uuid) -> DomainResult<Vec<EventRegistration>> {
+        self.check_failure().await?;
+        let ids = self
+            .by_event
+            .lock()
+            .await
+            .get(&event_id)
+            .cloned()
+            .unwrap_or_default();
+        let map = self.registrations.lock().await;
+        Ok(ids
+            .into_iter()
+            .filter_map(|id| map.get(&id).cloned())
+            .collect())
+    }
+
+    async fn find_by_user_id(&self, user_id: Uuid) -> DomainResult<Vec<EventRegistration>> {
+        self.check_failure().await?;
+        let ids = self
+            .by_user
+            .lock()
+            .await
+            .get(&user_id)
+            .cloned()
+            .unwrap_or_default();
+        let map = self.registrations.lock().await;
+        Ok(ids
+            .into_iter()
+            .filter_map(|id| map.get(&id).cloned())
+            .collect())
+    }
+
+    async fn find_by_event_and_user(
+        &self,
+        event_id: Uuid,
+        user_id: Uuid,
+    ) -> DomainResult<Option<EventRegistration>> {
+        self.check_failure().await?;
+        let registrations = self.registrations.lock().await;
+        Ok(registrations
+            .values()
+            .find(|r| r.event_id == event_id && r.user_id == Some(user_id))
+            .cloned())
+    }
+
+    async fn create(&self, registration: &EventRegistration) -> DomainResult<()> {
+        self.check_failure().await?;
+        self.add_registration(registration.clone()).await;
+        Ok(())
+    }
+
+    async fn update(&self, registration: &EventRegistration) -> DomainResult<()> {
+        self.check_failure().await?;
+        let mut registrations = self.registrations.lock().await;
+        if registrations.contains_key(&registration.id) {
+            registrations.insert(registration.id, registration.clone());
+            Ok(())
+        } else {
+            Err(DomainError::not_found("EventRegistration", registration.id))
+        }
+    }
+
+    async fn delete(&self, id: Uuid) -> DomainResult<()> {
+        self.check_failure().await?;
+        let mut registrations = self.registrations.lock().await;
+        if registrations.remove(&id).is_some() {
+            Ok(())
+        } else {
+            Err(DomainError::not_found("EventRegistration", id))
+        }
+    }
+}

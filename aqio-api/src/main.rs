@@ -8,8 +8,8 @@ mod testing;
 use aqio_database::{
     Database,
     infrastructure::persistence::sqlite::{
-        SqliteEventCategoryRepository, SqliteEventRepository, SqliteInvitationRepository,
-        SqliteUserRepository,
+        SqliteEventCategoryRepository, SqliteEventRepository, SqliteEventRegistrationRepository,
+        SqliteInvitationRepository, SqliteUserRepository,
     },
 };
 use auth::KeycloakConfig;
@@ -36,6 +36,7 @@ async fn main() -> anyhow::Result<()> {
     let user_repository = Arc::new(SqliteUserRepository::new(db.pool().clone()));
     let event_category_repository = Arc::new(SqliteEventCategoryRepository::new(db.pool().clone()));
     let invitation_repository = Arc::new(SqliteInvitationRepository::new(db.pool().clone()));
+    let registration_repository = Arc::new(SqliteEventRegistrationRepository::new(db.pool().clone()));
 
     // Create concrete application state with dependency injection
     let app_state = AppState::new(
@@ -43,6 +44,7 @@ async fn main() -> anyhow::Result<()> {
         user_repository,
         event_category_repository,
         invitation_repository,
+        registration_repository,
     );
 
     // Create base routes (expecting AppState)

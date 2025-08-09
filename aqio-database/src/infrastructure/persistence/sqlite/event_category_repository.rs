@@ -2,11 +2,11 @@ use crate::domain::{
     errors::{InfrastructureError},
     repositories::EventCategoryRepository,
 };
+use crate::infrastructure::persistence::sqlite::types::{SafeRowGet, RowConversionError};
 use aqio_core::{EventCategory, DomainResult};
 use async_trait::async_trait;
-use sqlx::{Pool, Sqlite, Row};
+use sqlx::{Pool, Sqlite};
 use tracing::{instrument, debug};
-use chrono::{DateTime, Utc};
 
 #[derive(Clone)]
 pub struct SqliteEventCategoryRepository {
@@ -18,20 +18,22 @@ impl SqliteEventCategoryRepository {
         Self { pool }
     }
 
-    // Helper method to convert database row to EventCategory
-    fn row_to_category(row: &sqlx::sqlite::SqliteRow) -> EventCategory {
-        EventCategory {
-            id: row.try_get("id").unwrap_or_default(),
-            name: row.try_get("name").unwrap_or_default(),
-            description: row.try_get("description").ok(),
-            color_hex: row.try_get("color_hex").ok(),
-            icon_name: row.try_get("icon_name").ok(),
-            is_active: row.try_get("is_active").unwrap_or(true),
-            created_at: DateTime::from_naive_utc_and_offset(
-                row.try_get("created_at").unwrap_or_else(|_| chrono::DateTime::from_timestamp(0, 0).unwrap().naive_utc()),
-                Utc
-            ),
-        }
+    // Helper method to convert database row to EventCategory using SafeRowGet
+    fn row_to_category(row: &sqlx::sqlite::SqliteRow) -> Result<EventCategory, RowConversionError> {
+        Ok(EventCategory {
+            id: row.get_string("id")?,
+            name: row.get_string("name")?,
+            description: row.get_optional_string("description")?,
+            color_hex: row.get_optional_string("color_hex")?,
+            icon_name: row.get_optional_string("icon_name")?,
+            is_active: row.get_bool("is_active")?,
+            created_at: row.get_datetime("created_at")?,
+        })
+    }
+
+    // Helper method to convert RowConversionError to InfrastructureError
+    fn conversion_error_to_infrastructure_error(error: RowConversionError) -> InfrastructureError {
+        InfrastructureError::from(error)
     }
 }
 
@@ -115,9 +117,16 @@ impl EventCategoryRepository for SqliteEventCategoryRepository {
 
         match result {
             Ok(Some(row)) => {
-                let category = Self::row_to_category(&row);
-                debug!("Found event category: {}", category.name);
-                Ok(Some(category))
+                match Self::row_to_category(&row) {
+                    Ok(category) => {
+                        debug!("Found event category: {}", category.name);
+                        Ok(Some(category))
+                    }
+                    Err(conv_error) => {
+                        let infrastructure_error = Self::conversion_error_to_infrastructure_error(conv_error);
+                        Err(infrastructure_error.into())
+                    }
+                }
             }
             Ok(None) => {
                 debug!("Event category not found with id: {}", id);
@@ -143,7 +152,16 @@ impl EventCategoryRepository for SqliteEventCategoryRepository {
 
         match result {
             Ok(rows) => {
-                let categories: Vec<EventCategory> = rows.iter().map(Self::row_to_category).collect();
+                let mut categories = Vec::new();
+                for row in rows.iter() {
+                    match Self::row_to_category(row) {
+                        Ok(category) => categories.push(category),
+                        Err(conv_error) => {
+                            let infrastructure_error = Self::conversion_error_to_infrastructure_error(conv_error);
+                            return Err(infrastructure_error.into());
+                        }
+                    }
+                }
                 debug!("Found {} active event categories", categories.len());
                 Ok(categories)
             }
@@ -167,7 +185,16 @@ impl EventCategoryRepository for SqliteEventCategoryRepository {
 
         match result {
             Ok(rows) => {
-                let categories: Vec<EventCategory> = rows.iter().map(Self::row_to_category).collect();
+                let mut categories = Vec::new();
+                for row in rows.iter() {
+                    match Self::row_to_category(row) {
+                        Ok(category) => categories.push(category),
+                        Err(conv_error) => {
+                            let infrastructure_error = Self::conversion_error_to_infrastructure_error(conv_error);
+                            return Err(infrastructure_error.into());
+                        }
+                    }
+                }
                 debug!("Found {} event categories", categories.len());
                 Ok(categories)
             }

@@ -4,11 +4,12 @@
 use std::sync::Arc;
 
 use crate::domain::services::{
-    EventApplicationService, EventCategoryApplicationService, HealthApplicationService,
-    InvitationApplicationService, UserApplicationService,
+    EventApplicationService, EventCategoryApplicationService, EventRegistrationApplicationService,
+    HealthApplicationService, InvitationApplicationService, UserApplicationService,
 };
 use aqio_core::{
-    EventCategoryRepository, EventInvitationRepository, EventRepository, UserRepository,
+    EventCategoryRepository, EventInvitationRepository, EventRegistrationRepository,
+    EventRepository, UserRepository,
 };
 
 // Concrete AppState that works with Axum
@@ -18,6 +19,7 @@ pub struct AppState {
     pub user_service: UserApplicationService,
     pub event_category_service: EventCategoryApplicationService,
     pub invitation_service: InvitationApplicationService,
+    pub registration_service: EventRegistrationApplicationService,
     pub health_service: HealthApplicationService,
 }
 
@@ -27,12 +29,14 @@ impl AppState {
         user_repository: Arc<dyn UserRepository>,
         event_category_repository: Arc<dyn EventCategoryRepository>,
         invitation_repository: Arc<dyn EventInvitationRepository>,
+        registration_repository: Arc<dyn EventRegistrationRepository>,
     ) -> Self {
         Self {
             event_service: EventApplicationService::new(event_repository.clone()),
             user_service: UserApplicationService::new(user_repository),
             event_category_service: EventCategoryApplicationService::new(event_category_repository),
             invitation_service: InvitationApplicationService::new(invitation_repository),
+            registration_service: EventRegistrationApplicationService::new(registration_repository),
             health_service: HealthApplicationService::new(event_repository),
         }
     }
@@ -60,6 +64,12 @@ impl axum::extract::FromRef<AppState> for EventCategoryApplicationService {
 impl axum::extract::FromRef<AppState> for InvitationApplicationService {
     fn from_ref(app_state: &AppState) -> Self {
         app_state.invitation_service.clone()
+    }
+}
+
+impl axum::extract::FromRef<AppState> for EventRegistrationApplicationService {
+    fn from_ref(app_state: &AppState) -> Self {
+        app_state.registration_service.clone()
     }
 }
 

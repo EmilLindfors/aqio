@@ -15,16 +15,39 @@ pub enum Route {
 #[component]
 pub fn Root() -> Element {
     rsx! {
-        Router::<Route> {}
+        header { class: "aqio-header",
+            div { class: "container aqio-header-inner",
+                a { class: "aqio-brand", href: "/", "🐟 AQIO" }
+                nav { class: "aqio-nav",
+                    Link { class: "aqio-nav-link", to: Route::Home {}, "Events" }
+                }
+            }
+        }
+        main { class: "container route-container",
+            Router::<Route> {}
+        }
+        footer { class: "aqio-footer",
+            div { class: "container",
+                span { class: "aqio-footer-text", "Built with Rust, Dioxus, and Axum" }
+            }
+        }
     }
 }
 
 #[component]
 pub fn Home() -> Element {
     rsx! {
-        div { class: "container",
-            h1 { "AQIO" }
-            Link { to: Route::Events {}, "Go to Events" }
+        div { class: "home",
+            // Use our component lib primitives to compose the hero section
+            crate::lib::components::layout::Stack { gap: crate::lib::components::layout::GapSize::Large,
+                crate::lib::components::typography::Heading { level: crate::lib::components::typography::HeadingLevel::H1,
+                    "AQIO"
+                }
+                crate::lib::components::typography::Paragraph { 
+                    "Welcome. Browse upcoming events."
+                }
+                Link { to: Route::Events {}, "Go to Events" }
+            }
         }
     }
 }

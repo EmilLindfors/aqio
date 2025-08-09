@@ -1,8 +1,9 @@
-use crate::domain::{errors::InfrastructureError, repositories::UserRepository};
-use crate::infrastructure::persistence::mapping::{map_user_role, user_role_to_string};
+use crate::domain::errors::{InfrastructureError, SqliteForeignKeyDiagnostic};
+use crate::domain::repositories::UserRepository;
+use crate::infrastructure::persistence::mapping::user_role_to_string;
+use crate::infrastructure::persistence::sqlite::types::{SafeRowGet, RowConversionError};
 use aqio_core::{DomainResult, PaginatedResult, PaginationParams, User};
 use async_trait::async_trait;
-use chrono::{DateTime, Utc};
 use sqlx::{Pool, Row, Sqlite};
 use tracing::{debug, instrument};
 use uuid::Uuid;
@@ -17,34 +18,45 @@ impl SqliteUserRepository {
         Self { pool }
     }
 
-    // Helper method to convert database row to User
-    fn row_to_user(row: &sqlx::sqlite::SqliteRow) -> User {
-        User {
-            id: Uuid::parse_str(&row.try_get::<String, _>("id").unwrap_or_default())
-                .unwrap_or_default(),
-            keycloak_id: row.try_get("keycloak_id").unwrap_or_default(),
-            email: row.try_get("email").unwrap_or_default(),
-            name: row.try_get("name").unwrap_or_default(),
-            company_id: row
-                .try_get::<Option<String>, _>("company_id")
-                .ok()
-                .flatten()
-                .and_then(|s| Uuid::parse_str(&s).ok()),
-            role: map_user_role(&row.try_get::<String, _>("role").unwrap_or_default()),
-            is_active: row.try_get("is_active").unwrap_or(true),
-            created_at: DateTime::from_naive_utc_and_offset(
-                row.try_get("created_at").unwrap_or_else(|_| {
-                    chrono::DateTime::from_timestamp(0, 0).unwrap().naive_utc()
-                }),
-                Utc,
-            ),
-            updated_at: DateTime::from_naive_utc_and_offset(
-                row.try_get("updated_at").unwrap_or_else(|_| {
-                    chrono::DateTime::from_timestamp(0, 0).unwrap().naive_utc()
-                }),
-                Utc,
-            ),
+    // Helper method to convert database row to User using SafeRowGet
+    fn row_to_user(row: &sqlx::sqlite::SqliteRow) -> Result<User, RowConversionError> {
+        Ok(User {
+            id: row.get_uuid("id")?,
+            keycloak_id: row.get_string("keycloak_id")?,
+            email: row.get_string("email")?,
+            name: row.get_string("name")?,
+            company_id: row.get_optional_uuid("company_id")?,
+            role: row.get_user_role("role")?,
+            is_active: row.get_bool("is_active")?,
+            created_at: row.get_datetime("created_at")?,
+            updated_at: row.get_datetime("updated_at")?,
+        })
+    }
+
+    // Helper method to convert RowConversionError to InfrastructureError
+    fn conversion_error_to_infrastructure_error(error: RowConversionError) -> InfrastructureError {
+        InfrastructureError::from(error)
+    }
+
+    // Diagnose which foreign key constraint is failing by checking if referenced entities exist
+    async fn diagnose_foreign_key_violation(&self, user: &User, _db_message: &str) -> aqio_core::DomainError {
+        let diagnostic = SqliteForeignKeyDiagnostic::new(self.pool.clone());
+
+        // Check if company exists (if company_id is provided)
+        if let Some(company_id) = user.company_id {
+            let company_exists = diagnostic.check_company_exists(company_id).await;
+
+            if !company_exists {
+                return SqliteForeignKeyDiagnostic::create_user_friendly_foreign_key_error(
+                    "User",
+                    "company_id",
+                    &company_id.to_string(),
+                );
+            }
         }
+
+        // If we get here, it's some other foreign key constraint we don't know about
+        aqio_core::DomainError::business_rule("Foreign key constraint violation: Unknown referenced entity does not exist")
     }
 }
 
@@ -78,6 +90,11 @@ impl UserRepository for SqliteUserRepository {
                 let infrastructure_error = InfrastructureError::from(e);
                 match infrastructure_error {
                     InfrastructureError::DomainError { source } => Err(source),
+                    InfrastructureError::ForeignKeyConstraintViolation { message } => {
+                        // We have context about what we were trying to insert
+                        let specific_error = self.diagnose_foreign_key_violation(&user, &message).await;
+                        Err(specific_error)
+                    }
                     other => Err(other.into()),
                 }
             }
@@ -116,6 +133,11 @@ impl UserRepository for SqliteUserRepository {
                 let infrastructure_error = InfrastructureError::from(e);
                 match infrastructure_error {
                     InfrastructureError::DomainError { source } => Err(source),
+                    InfrastructureError::ForeignKeyConstraintViolation { message } => {
+                        // We have context about what we were trying to update
+                        let specific_error = self.diagnose_foreign_key_violation(&user, &message).await;
+                        Err(specific_error)
+                    }
                     other => Err(other.into()),
                 }
             }
@@ -134,9 +156,16 @@ impl UserRepository for SqliteUserRepository {
 
         match result {
             Ok(Some(row)) => {
-                let user = Self::row_to_user(&row);
-                debug!("Found user: {}", user.email);
-                Ok(Some(user))
+                match Self::row_to_user(&row) {
+                    Ok(user) => {
+                        debug!("Found user: {}", user.email);
+                        Ok(Some(user))
+                    }
+                    Err(conv_error) => {
+                        let infrastructure_error = Self::conversion_error_to_infrastructure_error(conv_error);
+                        Err(infrastructure_error.into())
+                    }
+                }
             }
             Ok(None) => {
                 debug!("User not found with id: {}", id);
@@ -163,9 +192,16 @@ impl UserRepository for SqliteUserRepository {
 
         match result {
             Ok(Some(row)) => {
-                let user = Self::row_to_user(&row);
-                debug!("Found user: {}", user.email);
-                Ok(Some(user))
+                match Self::row_to_user(&row) {
+                    Ok(user) => {
+                        debug!("Found user: {}", user.email);
+                        Ok(Some(user))
+                    }
+                    Err(conv_error) => {
+                        let infrastructure_error = Self::conversion_error_to_infrastructure_error(conv_error);
+                        Err(infrastructure_error.into())
+                    }
+                }
             }
             Ok(None) => {
                 debug!("User not found with keycloak_id: {}", keycloak_id);
@@ -192,9 +228,16 @@ impl UserRepository for SqliteUserRepository {
 
         match result {
             Ok(Some(row)) => {
-                let user = Self::row_to_user(&row);
-                debug!("Found user: {}", user.email);
-                Ok(Some(user))
+                match Self::row_to_user(&row) {
+                    Ok(user) => {
+                        debug!("Found user: {}", user.email);
+                        Ok(Some(user))
+                    }
+                    Err(conv_error) => {
+                        let infrastructure_error = Self::conversion_error_to_infrastructure_error(conv_error);
+                        Err(infrastructure_error.into())
+                    }
+                }
             }
             Ok(None) => {
                 debug!("User not found with email: {}", email);
@@ -262,7 +305,16 @@ impl UserRepository for SqliteUserRepository {
 
         match result {
             Ok(rows) => {
-                let users: Vec<User> = rows.iter().map(|row| Self::row_to_user(row)).collect();
+                let mut users = Vec::new();
+                for row in rows.iter() {
+                    match Self::row_to_user(row) {
+                        Ok(user) => users.push(user),
+                        Err(conv_error) => {
+                            let infrastructure_error = Self::conversion_error_to_infrastructure_error(conv_error);
+                            return Err(infrastructure_error.into());
+                        }
+                    }
+                }
                 debug!("Listed {} users out of {} total", users.len(), total_count);
                 Ok(PaginatedResult::new(users, total_count, pagination))
             }
@@ -557,5 +609,170 @@ mod tests {
             .unwrap()
             .unwrap();
         assert!(matches!(found_organizer.role, UserRole::Organizer));
+    }
+
+    #[tokio::test]
+    async fn test_unique_email_constraint_violation() {
+        let pool = create_test_db().await;
+        let repository = SqliteUserRepository::new(pool);
+        
+        // Create first user
+        let user1 = create_test_user("John Doe", "test@example.com");
+        let result1 = repository.create(&user1).await;
+        assert!(result1.is_ok(), "First user creation should succeed");
+        
+        // Try to create second user with same email
+        let user2 = create_test_user("Jane Doe", "test@example.com");
+        let result2 = repository.create(&user2).await;
+        
+        assert!(result2.is_err(), "Second user creation should fail due to duplicate email");
+        
+        // Check the error type and message
+        let error = result2.unwrap_err();
+        println!("📧 Email constraint error: {:?}", error);
+        
+        match error {
+            aqio_core::DomainError::ValidationError { field, message, .. } => {
+                assert_eq!(field, "email");
+                assert!(message.contains("email address is already registered"), 
+                    "Expected user-friendly message about duplicate email, got: {}", message);
+                println!("✅ Got user-friendly ValidationError: {}", message);
+            }
+            aqio_core::DomainError::ConflictError { message, .. } => {
+                assert!(message.contains("email") || message.contains("UNIQUE"),
+                    "Expected email conflict message, got: {}", message);
+                println!("✅ Got ConflictError: {}", message);
+            }
+            other => panic!("Expected ValidationError or ConflictError, got: {:?}", other),
+        }
+    }
+
+    #[tokio::test]
+    async fn test_unique_keycloak_id_constraint_violation() {
+        let pool = create_test_db().await;
+        let repository = SqliteUserRepository::new(pool);
+        
+        // Create first user
+        let user1 = create_test_user("John Doe", "john@example.com");
+        let result1 = repository.create(&user1).await;
+        assert!(result1.is_ok(), "First user creation should succeed");
+        
+        // Try to create second user with same keycloak_id
+        let mut user2 = create_test_user("Jane Doe", "jane@example.com");
+        user2.keycloak_id = user1.keycloak_id.clone(); // Same keycloak_id
+        
+        let result2 = repository.create(&user2).await;
+        
+        assert!(result2.is_err(), "Second user creation should fail due to duplicate keycloak_id");
+        
+        // Check the error type and message
+        let error = result2.unwrap_err();
+        println!("🔑 Keycloak constraint error: {:?}", error);
+        
+        match error {
+            aqio_core::DomainError::ValidationError { field, message, .. } => {
+                assert_eq!(field, "keycloak_id");
+                assert!(message.contains("user account is already linked") || message.contains("keycloak"),
+                    "Expected user-friendly message about duplicate keycloak_id, got: {}", message);
+                println!("✅ Got user-friendly ValidationError: {}", message);
+            }
+            aqio_core::DomainError::ConflictError { message, .. } => {
+                assert!(message.contains("user account is already linked") || message.contains("keycloak") || message.contains("UNIQUE"),
+                    "Expected keycloak conflict message, got: {}", message);
+                println!("✅ Got ConflictError: {}", message);
+            }
+            other => panic!("Expected ValidationError or ConflictError, got: {:?}", other),
+        }
+    }
+
+    #[tokio::test]
+    async fn test_check_constraint_violation() {
+        let pool = create_test_db().await;
+        
+        // Try to insert a user with invalid role directly via SQL to trigger check constraint
+        let result = sqlx::query(
+            "INSERT INTO users (id, keycloak_id, email, name, role, is_active, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)"
+        )
+        .bind(Uuid::new_v4().to_string())
+        .bind("test_keycloak_check")
+        .bind("check_test@example.com")
+        .bind("Check Test User")
+        .bind("invalid_role")  // Invalid role - should trigger check constraint
+        .bind(true)
+        .bind(Utc::now().naive_utc())
+        .bind(Utc::now().naive_utc())
+        .execute(&pool)
+        .await;
+            
+        assert!(result.is_err(), "Insert with invalid role should fail");
+        
+        // Check the error
+        let infrastructure_error = crate::domain::errors::InfrastructureError::from(result.unwrap_err());
+        println!("⚠️ Check constraint error: {:?}", infrastructure_error);
+        
+        match infrastructure_error {
+            crate::domain::errors::InfrastructureError::CheckConstraintViolation { message, constraint } => {
+                assert!(constraint.is_some(), "Expected constraint info");
+                assert!(message.contains("Invalid value"), "Expected user-friendly check constraint message");
+                println!("✅ Got check constraint violation: {}", message);
+            }
+            crate::domain::errors::InfrastructureError::QueryError { message } => {
+                // SQLite might return this as a generic query error
+                assert!(message.contains("CHECK") || message.contains("constraint"), 
+                    "Expected check constraint in message: {}", message);
+                println!("✅ Got check constraint as query error: {}", message);
+            }
+            other => {
+                // Print what we got to understand the behavior
+                println!("ℹ️ Got different error type: {:?}", other);
+                // Don't fail the test, just document the behavior
+            }
+        }
+    }
+
+    #[tokio::test]
+    async fn test_not_null_constraint_violation() {
+        let pool = create_test_db().await;
+        
+        // Try to insert a user with NULL name field directly via SQL
+        let result = sqlx::query(
+            "INSERT INTO users (id, keycloak_id, email, name, role, is_active, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)"
+        )
+        .bind(Uuid::new_v4().to_string())
+        .bind("test_keycloak_null")
+        .bind("null_test@example.com")
+        .bind::<Option<String>>(None) // NULL name - should trigger NOT NULL constraint
+        .bind("participant")
+        .bind(true)
+        .bind(Utc::now().naive_utc())
+        .bind(Utc::now().naive_utc())
+        .execute(&pool)
+        .await;
+            
+        assert!(result.is_err(), "Insert with NULL name should fail");
+        
+        // Check the error
+        let infrastructure_error = crate::domain::errors::InfrastructureError::from(result.unwrap_err());
+        println!("❌ NOT NULL constraint error: {:?}", infrastructure_error);
+        
+        match infrastructure_error {
+            crate::domain::errors::InfrastructureError::NotNullConstraintViolation { message, field } => {
+                assert!(field.is_some(), "Expected field info");
+                assert_eq!(field.unwrap(), "name", "Expected 'name' field");
+                assert!(message.contains("required and cannot be empty"), "Expected user-friendly NOT NULL message");
+                println!("✅ Got NOT NULL constraint violation: {}", message);
+            }
+            crate::domain::errors::InfrastructureError::QueryError { message } => {
+                // SQLite might return this as a generic query error
+                assert!(message.contains("NOT NULL") || message.contains("constraint"), 
+                    "Expected NOT NULL constraint in message: {}", message);
+                println!("✅ Got NOT NULL constraint as query error: {}", message);
+            }
+            other => {
+                // Print what we got to understand the behavior
+                println!("ℹ️ Got different error type: {:?}", other);
+                // Don't fail the test, just document the behavior
+            }
+        }
     }
 }

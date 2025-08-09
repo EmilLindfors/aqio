@@ -27,6 +27,8 @@ thiserror.workspace = true
 async-trait.workspace = true
 tokio-util = "0.7.16"
 hyper-util = "0.1.16"
+utoipa = { version = "4.0", features = ["axum_extras", "chrono", "uuid"] }
+utoipa-swagger-ui = { version = "6.0", features = ["axum"] }
 
 [dev-dependencies]
 tokio-test.workspace = true

@@ -31,7 +31,8 @@
     --aqio-text-lg: 1.125rem;
 }
 
-html, body {
+html,
+body {
     margin: 0;
     padding: 0;
     background-color: var(--aqio-surface);
@@ -48,9 +49,60 @@ html, body {
     background-color: var(--aqio-surface);
 }
 
+/* Layout */
+.container {
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 0 1rem;
+}
+
+.aqio-header {
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    background: var(--aqio-surface);
+    border-bottom: 1px solid var(--aqio-border);
+}
+
+.aqio-header-inner {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.75rem 0;
+}
+
+.aqio-brand {
+    font-weight: 700;
+    color: var(--aqio-blue-primary);
+    text-decoration: none;
+}
+
+.aqio-nav {
+    display: flex;
+    gap: 1rem;
+}
+
+.aqio-nav-link {
+    color: var(--aqio-text-secondary);
+    text-decoration: none;
+}
+
+.aqio-nav-link[aria-current="page"] {
+    color: var(--aqio-blue-primary);
+}
+
+.aqio-footer {
+    border-top: 1px solid var(--aqio-border);
+    padding: 1rem 0;
+    margin-top: 2rem;
+    color: var(--aqio-text-secondary);
+    background: var(--aqio-gray-100);
+}
+
 /* Smooth route transitions */
 .route-container {
-    min-height: calc(100vh - 120px); /* Account for header/footer */
+    min-height: calc(100vh - 120px);
+    /* Account for header/footer */
     background-color: var(--aqio-surface);
     transition: opacity 0.15s ease-in-out;
 }
@@ -100,6 +152,3 @@ html, body {
 #header {
     max-width: 1200px;
 }
-
-
-

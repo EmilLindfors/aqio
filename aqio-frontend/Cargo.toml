@@ -9,7 +9,7 @@ description.workspace = true
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-dioxus = { version = "0.7.0-alpha.3", features = ["router"] }
+dioxus = { git = "https://github.com/DioxusLabs/dioxus.git", features = ["router"] }
 reqwest.workspace = true
 serde.workspace = true
 serde_json.workspace = true
@@ -22,10 +22,10 @@ gloo-storage = "0.3"
 gloo-timers = { version = "0.3", features = ["futures"] }
 js-sys = "0.3"
 aqio-core.workspace = true
-# dioxus-primitives = { path = "components/primitives" }
 log.workspace = true
 console_error_panic_hook = "0.1"
 async-trait.workspace = true
+dioxus-primitives = { git = "https://github.com/DioxusLabs/components.git" }
 
 [features]
 default = ["web"]

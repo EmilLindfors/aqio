@@ -7,8 +7,8 @@ use crate::domain::dto::{CreateEventRequest, ListEventsQuery};
 use crate::domain::errors::{ApiError, ApiResult};
 use aqio_core::{
     DomainError, Event, EventCategory, EventCategoryRepository, EventInvitation,
-    EventInvitationRepository, EventRepository, EventService, InvitationStatus, PaginatedResult,
-    PaginationParams, User, UserRepository,
+    EventInvitationRepository, EventRegistration, EventRegistrationRepository, EventRepository, 
+    EventService, InvitationStatus, PaginatedResult, PaginationParams, RegistrationStatus, User, UserRepository,
 };
 
 // ============================================================================
@@ -216,6 +216,13 @@ impl UserApplicationService {
             .map_err(|e| ApiError::Domain { source: e })
     }
 
+    pub async fn get_user_by_keycloak_id(&self, keycloak_id: &str) -> ApiResult<Option<User>> {
+        self.user_repository
+            .find_by_keycloak_id(keycloak_id)
+            .await
+            .map_err(|e| ApiError::Domain { source: e })
+    }
+
     pub async fn list_users(
         &self,
         pagination: PaginationParams,
@@ -412,6 +419,147 @@ impl InvitationApplicationService {
             .delete(invitation_id)
             .await
             .map_err(|e| ApiError::Domain { source: e })
+    }
+}
+
+// ============================================================================
+// Event Registration Application Service
+// ============================================================================
+
+#[derive(Clone)]
+pub struct EventRegistrationApplicationService {
+    registration_repository: Arc<dyn EventRegistrationRepository>,
+}
+
+impl EventRegistrationApplicationService {
+    pub fn new(registration_repository: Arc<dyn EventRegistrationRepository>) -> Self {
+        Self {
+            registration_repository,
+        }
+    }
+
+    pub async fn get_registration_by_id(&self, registration_id: Uuid) -> ApiResult<EventRegistration> {
+        self.registration_repository
+            .find_by_id(registration_id)
+            .await
+            .map_err(|e| ApiError::Domain { source: e })?
+            .ok_or_else(|| ApiError::not_found(format!("Registration with ID {}", registration_id)))
+    }
+
+    pub async fn get_registrations_by_event(
+        &self,
+        event_id: Uuid,
+    ) -> ApiResult<Vec<EventRegistration>> {
+        self.registration_repository
+            .find_by_event_id(event_id)
+            .await
+            .map_err(|e| ApiError::Domain { source: e })
+    }
+
+    pub async fn get_registrations_by_user(&self, user_id: Uuid) -> ApiResult<Vec<EventRegistration>> {
+        self.registration_repository
+            .find_by_user_id(user_id)
+            .await
+            .map_err(|e| ApiError::Domain { source: e })
+    }
+
+    pub async fn get_registration_by_event_and_user(
+        &self,
+        event_id: Uuid,
+        user_id: Uuid,
+    ) -> ApiResult<Option<EventRegistration>> {
+        self.registration_repository
+            .find_by_event_and_user(event_id, user_id)
+            .await
+            .map_err(|e| ApiError::Domain { source: e })
+    }
+
+    pub async fn create_registration(&self, registration: &EventRegistration) -> ApiResult<()> {
+        // Check for duplicate registration
+        if let Some(user_id) = registration.user_id {
+            if let Some(_existing) = self
+                .registration_repository
+                .find_by_event_and_user(registration.event_id, user_id)
+                .await
+                .map_err(|e| ApiError::Domain { source: e })?
+            {
+                return Err(ApiError::validation(
+                    "user_id",
+                    "User is already registered for this event",
+                ));
+            }
+        }
+
+        self.registration_repository
+            .create(registration)
+            .await
+            .map_err(|e| ApiError::Domain { source: e })
+    }
+
+    pub async fn update_registration(&self, registration: &EventRegistration) -> ApiResult<()> {
+        self.registration_repository
+            .update(registration)
+            .await
+            .map_err(|e| ApiError::Domain { source: e })
+    }
+
+    pub async fn update_registration_status(
+        &self,
+        registration_id: Uuid,
+        status: RegistrationStatus,
+    ) -> ApiResult<()> {
+        let mut registration = self.get_registration_by_id(registration_id).await?;
+        
+        // Handle status-specific logic
+        match status {
+            RegistrationStatus::Cancelled => {
+                registration.cancelled_at = Some(chrono::Utc::now());
+            }
+            RegistrationStatus::Attended => {
+                registration.checked_in_at = Some(chrono::Utc::now());
+            }
+            _ => {}
+        }
+        
+        registration.status = status;
+        registration.updated_at = chrono::Utc::now();
+
+        self.update_registration(&registration).await
+    }
+
+    pub async fn cancel_registration(&self, registration_id: Uuid) -> ApiResult<()> {
+        self.update_registration_status(registration_id, RegistrationStatus::Cancelled)
+            .await
+    }
+
+    pub async fn check_in_registration(&self, registration_id: Uuid) -> ApiResult<()> {
+        self.update_registration_status(registration_id, RegistrationStatus::Attended)
+            .await
+    }
+
+    pub async fn delete_registration(&self, registration_id: Uuid) -> ApiResult<()> {
+        self.registration_repository
+            .delete(registration_id)
+            .await
+            .map_err(|e| ApiError::Domain { source: e })
+    }
+
+    pub async fn get_event_attendance_count(&self, event_id: Uuid) -> ApiResult<usize> {
+        let registrations = self.get_registrations_by_event(event_id).await?;
+        let count = registrations
+            .iter()
+            .filter(|r| matches!(r.status, RegistrationStatus::Registered | RegistrationStatus::Attended))
+            .count();
+        Ok(count)
+    }
+
+    pub async fn get_event_waitlist_count(&self, event_id: Uuid) -> ApiResult<usize> {
+        let registrations = self.get_registrations_by_event(event_id).await?;
+        let count = registrations
+            .iter()
+            .filter(|r| matches!(r.status, RegistrationStatus::Waitlisted))
+            .count();
+        Ok(count)
     }
 }
 
