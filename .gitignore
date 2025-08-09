@@ -11,6 +11,11 @@ Cargo.lock
 *.db
 *.sqlite
 *.sqlite3
+# SQLite write-ahead log and shared memory files
+*.db-wal
+*.db-shm
+*-wal
+*-shm
 
 # Node.js
 **/node_modules/
